@@ -1,0 +1,103 @@
+{
+  "kind": "build_request",
+  "title": "Fix media deletion + PDF thumbnails, enable cost items editing in Roadmap, and make project dates optional",
+  "priority": "normal",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "text": "Fix Media deletion by implementing a backend `deleteMedia` API and wiring the frontend mutation to it so users can reliably delete images and PDFs without runtime errors.",
+      "target": "both",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "Alleredings kann ich einmal hinzugefügte Medien nicht löschen \"Fehler beim Löschen: actor.deleteMedia is not a function\""
+        ]
+      },
+      "acceptanceCriteria": [
+        "Clicking the delete (trash) action on a media tile successfully removes the media item from the backend and the UI list after confirmation.",
+        "No runtime error `actor.deleteMedia is not a function` occurs anywhere in the Media page.",
+        "After deletion, the Media query cache is invalidated/refetched and the deleted item no longer appears in grid or list view.",
+        "Deletion must also remove the stored blob content (no orphaned blob data for the deleted media)."
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "Make PDF previews in the Media grid view render correctly and consistently (show a real first-page thumbnail preview instead of a generic file icon when the PDF is valid and reachable).",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "was leider immer noch nicht funktoniert ist die korrekte PDF preview."
+        ]
+      },
+      "acceptanceCriteria": [
+        "For a valid PDF media item, the Media grid tile shows a rendered thumbnail of the PDF’s first page (not a generic document icon).",
+        "If a PDF thumbnail cannot be generated (corrupt PDF / unreachable URL), the UI falls back to the generic PDF icon and shows a non-blocking error state (no crash).",
+        "The existing 'eye' (viewer) action continues to open the PDF in the existing viewer modal successfully.",
+        "Thumbnail rendering works for multiple PDFs in the grid and respects light/dark theme styling (no unreadable backgrounds)."
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "Extend the Roadmap project edit dialog to allow adding/editing/removing cost items directly in the editor, and ensure changes are synced with the Kostenübersicht page.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-5",
+          "msg-7"
+        ],
+        "quotes": [
+          "wenn ich auf bearbeiten klicke keine Kostenpunkte hinzufügen .",
+          "1. \"im Roadmap‑Editor Kostenpositionen direkt hinzufügen können\""
+        ]
+      },
+      "acceptanceCriteria": [
+        "In Roadmap -> Edit Project dialog, there is a cost items section that supports adding, editing, and removing cost items for that project before saving.",
+        "When opening the Edit Project dialog, existing cost items for the project are loaded and displayed for editing (not an empty list).",
+        "Saving the project updates cost items in the backend and the Kostenübersicht page reflects the changes after save (queries invalidated/refetched).",
+        "The Create Project dialog behavior for cost items remains working as before."
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "Make project start and end dates optional (can be left blank during creation and editing), and update Roadmap/calendar rendering to handle projects without dates gracefully.",
+      "target": "both",
+      "source": {
+        "messageIds": [
+          "msg-5",
+          "msg-7"
+        ],
+        "quotes": [
+          "mich nervt es dass ich bei Projekten zwingend ein Datum eingeben muss. Manchmal weiß ich die Daten eben noch nicht.",
+          "2. optional und später festlegbar"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Users can create a project without providing start and/or end date (no required validation blocking submit).",
+        "Users can edit an existing project and clear previously set dates (set them back to empty/unknown).",
+        "Roadmap list view shows a clear placeholder label for missing dates (e.g., 'No dates set') rather than an invalid/epoch date.",
+        "Calendar views do not crash when projects have missing dates; projects without a complete date range are either excluded from the calendar grid or displayed in a dedicated 'Undated projects' area (choose one behavior and apply consistently).",
+        "Existing stored projects with dates remain intact after the schema change (no data loss across upgrade)."
+      ]
+    }
+  ],
+  "constraints": [
+    "Backend must remain a single Motoko actor in `backend/main.mo` (no additional backend services).",
+    "Only create/update `backend/migration.mo` if required to preserve existing stable state across the project-date schema change.",
+    "Do not modify any files under `frontend/src/components/ui` or the immutable hook entry points listed in SYSTEM_CONTEXT.",
+    "Use English for any new or changed user-facing text introduced by this build request (toasts, labels, placeholders, error messages)."
+  ],
+  "nonGoals": [
+    "Changing the Media drag-and-drop ordering behavior (it already works).",
+    "Adding new authentication providers (only Internet Identity is supported).",
+    "Introducing real-time updates or collaborative editing."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}

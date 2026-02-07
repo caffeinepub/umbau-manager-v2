@@ -1,0 +1,101 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Fix Media deletion + PDF thumbnails, enable Roadmap cost item editing, and make project dates optional (frontend)",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "summary": "Wire Media delete action to a real backend capability and ensure UI/react-query state updates after deletion.",
+      "acceptanceCriteria": [
+        "Clicking the delete (trash) action on a media tile successfully removes the media item from the backend and the UI list after confirmation.",
+        "No runtime error `actor.deleteMedia is not a function` occurs anywhere in the Media page.",
+        "After deletion, the Media query cache is invalidated/refetched and the deleted item no longer appears in grid or list view.",
+        "Deletion must also remove the stored blob content (no orphaned blob data for the deleted media)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Update the Media delete mutation (useDeleteMedia) to call an existing backend capability from the typed interface (e.g., deleteUserMedia) instead of a non-existent actor.deleteMedia, and ensure the mutation invalidates/refetches the ['media'] query on success."
+        },
+        {
+          "path": "frontend/src/pages/Media.tsx",
+          "operation": "modify",
+          "description": "Ensure the delete confirmation flow uses the corrected useDeleteMedia mutation, and that success results in the media list updating (via query invalidation/refetch) without runtime errors."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Render first-page PDF thumbnails reliably in Media grid tiles with safe fallbacks.",
+      "acceptanceCriteria": [
+        "For a valid PDF media item, the Media grid tile shows a rendered thumbnail of the PDF’s first page (not a generic document icon).",
+        "If a PDF thumbnail cannot be generated (corrupt PDF / unreachable URL), the UI falls back to the generic PDF icon and shows a non-blocking error state (no crash).",
+        "The existing 'eye' (viewer) action continues to open the PDF in the existing viewer modal successfully.",
+        "Thumbnail rendering works for multiple PDFs in the grid and respects light/dark theme styling (no unreadable backgrounds)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/PDFThumbnail.tsx",
+          "operation": "modify",
+          "description": "Fix thumbnail generation lifecycle by ensuring the hidden canvas is mounted while loading (so canvasRef is available), keep rendering resilient for multiple PDFs, and update any newly-changed user-facing strings (e.g., alt text / non-blocking error label) to English."
+        },
+        {
+          "path": "frontend/src/pages/Media.tsx",
+          "operation": "modify",
+          "description": "Verify Media grid tiles pass a stable, reachable PDF URL into PDFThumbnail (using blob-storage ExternalBlob.getDirectURL()) and that failures fall back without crashing. Verify the component's usage instructions before implementing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "summary": "Add editable cost items section to the Roadmap Edit Project dialog and sync changes with the cost overview data.",
+      "acceptanceCriteria": [
+        "In Roadmap -> Edit Project dialog, there is a cost items section that supports adding, editing, and removing cost items for that project before saving.",
+        "When opening the Edit Project dialog, existing cost items for the project are loaded and displayed for editing (not an empty list).",
+        "Saving the project updates cost items in the backend and the Kostenübersicht page reflects the changes after save (queries invalidated/refetched).",
+        "The Create Project dialog behavior for cost items remains working as before."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/Roadmap.tsx",
+          "operation": "modify",
+          "description": "Use the existing CostItemsSection component to support adding/editing/removing project cost items inside the Edit Project dialog (Verify the component's usage instructions before implementing). Load existing cost items for the selected project when opening the dialog, bind them to editCostItems state, and include them in the updateProject submission so backend sync occurs."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Ensure Roadmap project update flows that include costItems trigger the same react-query invalidations used elsewhere so Kostenübersicht reflects changes after save (e.g., invalidate ['costItems'] and ['kostenUebersicht'] after updating a project with cost items)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "summary": "Allow projects to be created/edited without dates and make Roadmap/calendar views handle undated projects safely.",
+      "acceptanceCriteria": [
+        "Users can create a project without providing start and/or end date (no required validation blocking submit).",
+        "Users can edit an existing project and clear previously set dates (set them back to empty/unknown).",
+        "Roadmap list view shows a clear placeholder label for missing dates (e.g., 'No dates set') rather than an invalid/epoch date.",
+        "Calendar views do not crash when projects have missing dates; projects without a complete date range are either excluded from the calendar grid or displayed in a dedicated 'Undated projects' area (choose one behavior and apply consistently).",
+        "Existing stored projects with dates remain intact after the schema change (no data loss across upgrade)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Update create/update project mutations to accept optional start/end values (pass null when blank, matching the typed backend interface), remove required-date validation, and add only new/changed user-facing validation/toast text in English (e.g., when both dates are provided but end < start)."
+        },
+        {
+          "path": "frontend/src/pages/Roadmap.tsx",
+          "operation": "modify",
+          "description": "Make Start/End date inputs optional for create and edit (no required attribute), support clearing dates during edit (submit nulls), and render a clear English placeholder like 'No dates set' in list view when one/both dates are missing."
+        },
+        {
+          "path": "frontend/src/components/CalendarView.tsx",
+          "operation": "modify",
+          "description": "Handle projects with missing dates gracefully by consistently excluding projects without a complete date range from the calendar grid and displaying them in a dedicated 'Undated projects' area (English label) to prevent crashes."
+        }
+      ]
+    }
+  ]
+}

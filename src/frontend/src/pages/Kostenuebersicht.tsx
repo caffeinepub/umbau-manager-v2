@@ -1,0 +1,717 @@
+import { useState } from 'react';
+import { useGetAllKostenpunkte, useGetAllProjects, useGetAllDocuments, useGetAllMedia, useUpdateKostenpunkt, useAddKostenpunkt, useDeleteKostenpunkt } from '../hooks/useQueries';
+import { useInternetIdentity } from '../hooks/useInternetIdentity';
+import type { CostItem, Project, DocumentId } from '../backend';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Loader2, Save, X, Plus, Trash2, FileText, ArrowUpDown, Filter } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { UnifiedPDFViewer } from '../components/UnifiedPDFViewer';
+import { toast } from 'sonner';
+import { UserType } from '../backend';
+
+interface EditingState {
+  id: string;
+  field: 'betrag' | 'kategorie' | 'status' | 'handwerker' | 'dokumentId';
+  value: string;
+}
+
+const COST_CATEGORIES = ['Energie', 'Ausstattung', 'Material', 'Arbeit', 'Planung', 'Sonstiges'];
+const COST_STATUS = ['geplant', 'bezahlt', 'offen'];
+
+type SortField = 'betrag' | 'datum' | 'beschreibung';
+type SortOrder = 'asc' | 'desc';
+
+export default function Kostenuebersicht() {
+  const { data: costItems = [], isLoading: costItemsLoading } = useGetAllKostenpunkte();
+  const { data: projects = [], isLoading: projectsLoading } = useGetAllProjects();
+  const { data: documents = [], isLoading: documentsLoading } = useGetAllDocuments();
+  const { data: media = [], isLoading: mediaLoading } = useGetAllMedia();
+  const { identity } = useInternetIdentity();
+  const updateKostenpunkt = useUpdateKostenpunkt();
+  const addKostenpunkt = useAddKostenpunkt();
+  const deleteKostenpunkt = useDeleteKostenpunkt();
+  
+  const [editingState, setEditingState] = useState<EditingState | null>(null);
+  const [addingToProject, setAddingToProject] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sortField, setSortField] = useState<SortField>('datum');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [selectedDocumentUrl, setSelectedDocumentUrl] = useState<string>('');
+  const [selectedDocumentTitle, setSelectedDocumentTitle] = useState<string>('');
+  
+  const [newCostItem, setNewCostItem] = useState({
+    beschreibung: '',
+    betrag: '',
+    kategorie: 'Material',
+    status: 'geplant',
+    handwerker: '',
+    dokumentId: 'none',
+  });
+
+  const isLoading = costItemsLoading || projectsLoading || documentsLoading || mediaLoading;
+  const userPrincipal = identity?.getPrincipal() || null;
+
+  // Create a map of project IDs to project names
+  const projectMap = new Map<string, Project>();
+  projects.forEach((project) => {
+    projectMap.set(project.id, project);
+  });
+
+  // Create a map of document IDs to document names and URLs
+  const documentMap = new Map<string, { name: string; url: string; type: string }>();
+  documents.forEach((doc) => {
+    documentMap.set(doc.id, {
+      name: doc.name,
+      url: doc.blob.getDirectURL(),
+      type: doc.typ,
+    });
+  });
+  media.forEach((m) => {
+    documentMap.set(m.id, {
+      name: m.name,
+      url: m.blob.getDirectURL(),
+      type: m.typ,
+    });
+  });
+
+  // Filter cost items by status
+  const filteredCostItems = costItems.filter(item => {
+    if (statusFilter === 'all') return true;
+    return item.status === statusFilter;
+  });
+
+  // Sort cost items
+  const sortedCostItems = [...filteredCostItems].sort((a, b) => {
+    let comparison = 0;
+    
+    if (sortField === 'betrag') {
+      comparison = a.betrag - b.betrag;
+    } else if (sortField === 'datum') {
+      comparison = Number(a.datum - b.datum);
+    } else if (sortField === 'beschreibung') {
+      comparison = a.beschreibung.localeCompare(b.beschreibung);
+    }
+    
+    return sortOrder === 'asc' ? comparison : -comparison;
+  });
+
+  // Group cost items by project
+  const groupedCostItems = sortedCostItems.reduce((acc, item) => {
+    const projectId = item.projektId;
+    if (!acc[projectId]) {
+      acc[projectId] = [];
+    }
+    acc[projectId].push(item);
+    return acc;
+  }, {} as Record<string, CostItem[]>);
+
+  // Calculate project summaries
+  const projectSummaries = Object.entries(groupedCostItems).map(([projectId, items]) => {
+    const gesamt = items.reduce((sum, item) => sum + item.betrag, 0);
+    const bezahlt = items.reduce((sum, item) => item.status === 'bezahlt' ? sum + item.betrag : sum, 0);
+    const offen = gesamt - bezahlt;
+    return { projectId, gesamt, bezahlt, offen };
+  });
+
+  // Calculate total sum
+  const totalSum = sortedCostItems.reduce((sum, item) => sum + item.betrag, 0);
+  const totalBezahlt = sortedCostItems.reduce((sum, item) => item.status === 'bezahlt' ? sum + item.betrag : sum, 0);
+  const totalOffen = totalSum - totalBezahlt;
+
+  const handleStartEdit = (id: string, field: 'betrag' | 'kategorie' | 'status' | 'handwerker' | 'dokumentId', currentValue: string | number | undefined) => {
+    setEditingState({
+      id,
+      field,
+      value: currentValue !== undefined ? String(currentValue) : '',
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingState(null);
+  };
+
+  const handleSaveEdit = async (item: CostItem) => {
+    if (!editingState) return;
+
+    try {
+      let updatedItem = { ...item };
+
+      if (editingState.field === 'betrag') {
+        const newBetrag = parseFloat(editingState.value);
+        if (isNaN(newBetrag) || newBetrag < 0) {
+          toast.error('Bitte geben Sie einen gültigen Betrag ein');
+          return;
+        }
+        updatedItem.betrag = newBetrag;
+      } else if (editingState.field === 'kategorie') {
+        updatedItem.kategorie = editingState.value.trim();
+        if (!updatedItem.kategorie) {
+          toast.error('Kategorie darf nicht leer sein');
+          return;
+        }
+      } else if (editingState.field === 'status') {
+        updatedItem.status = editingState.value;
+      } else if (editingState.field === 'handwerker') {
+        updatedItem.handwerker = editingState.value.trim() || undefined;
+      } else if (editingState.field === 'dokumentId') {
+        updatedItem.dokumentId = editingState.value === 'none' ? undefined : editingState.value as DocumentId;
+      }
+
+      await updateKostenpunkt.mutateAsync({
+        projectId: item.projektId,
+        kostId: item.id,
+        updatedKost: updatedItem,
+      });
+
+      setEditingState(null);
+    } catch (error) {
+      console.error('Error updating cost item:', error);
+    }
+  };
+
+  const handleValueChange = (value: string) => {
+    if (editingState) {
+      setEditingState({ ...editingState, value });
+    }
+  };
+
+  const handleAddCostItem = async (projectId: string) => {
+    if (!newCostItem.beschreibung.trim() || !newCostItem.betrag || !userPrincipal) {
+      toast.error('Bitte füllen Sie alle Pflichtfelder aus');
+      return;
+    }
+
+    const costItem: CostItem = {
+      id: `cost_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      beschreibung: newCostItem.beschreibung.trim(),
+      betrag: parseFloat(newCostItem.betrag),
+      kategorie: newCostItem.kategorie,
+      status: newCostItem.status,
+      datum: BigInt(Date.now() * 1000000),
+      projektId: projectId,
+      handwerker: newCostItem.handwerker.trim() || undefined,
+      dokumentId: newCostItem.dokumentId === 'none' ? undefined : newCostItem.dokumentId as DocumentId,
+      owner: userPrincipal,
+    };
+
+    try {
+      await addKostenpunkt.mutateAsync({
+        projectId: projectId,
+        costItem: costItem,
+      });
+
+      setNewCostItem({
+        beschreibung: '',
+        betrag: '',
+        kategorie: 'Material',
+        status: 'geplant',
+        handwerker: '',
+        dokumentId: 'none',
+      });
+      setAddingToProject(null);
+    } catch (error) {
+      console.error('Error adding cost item:', error);
+    }
+  };
+
+  const handleDeleteCostItem = async (projectId: string, costItemId: string) => {
+    if (!confirm('Möchten Sie diesen Kostenpunkt wirklich löschen?')) return;
+
+    try {
+      await deleteKostenpunkt.mutateAsync({
+        projectId: projectId,
+        kostenpunktId: costItemId,
+      });
+    } catch (error) {
+      console.error('Error deleting cost item:', error);
+    }
+  };
+
+  const handleDocumentClick = (dokumentId: string) => {
+    const doc = documentMap.get(dokumentId);
+    if (!doc) {
+      toast.error('Dokument nicht gefunden');
+      return;
+    }
+
+    setSelectedDocumentUrl(doc.url);
+    setSelectedDocumentTitle(doc.name);
+    setPdfViewerOpen(true);
+  };
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('de-DE', {
+      style: 'currency',
+      currency: 'EUR',
+    }).format(amount);
+  };
+
+  const renderEditableCell = (item: CostItem, field: 'betrag' | 'kategorie' | 'status' | 'handwerker' | 'dokumentId', displayValue: string | number | undefined) => {
+    const isEditing = editingState?.id === item.id && editingState?.field === field;
+
+    if (isEditing) {
+      return (
+        <div className="flex items-center gap-2">
+          {field === 'status' ? (
+            <Select value={editingState.value} onValueChange={handleValueChange}>
+              <SelectTrigger className="h-8 w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {COST_STATUS.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : field === 'kategorie' ? (
+            <Select value={editingState.value} onValueChange={handleValueChange}>
+              <SelectTrigger className="h-8 w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {COST_CATEGORIES.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : field === 'dokumentId' ? (
+            <Select value={editingState.value} onValueChange={handleValueChange}>
+              <SelectTrigger className="h-8 w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Kein Dokument</SelectItem>
+                {documents.map((doc) => (
+                  <SelectItem key={doc.id} value={doc.id}>
+                    {doc.name}
+                  </SelectItem>
+                ))}
+                {media.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input
+              type={field === 'betrag' ? 'number' : 'text'}
+              value={editingState.value}
+              onChange={(e) => handleValueChange(e.target.value)}
+              className="h-8 w-32"
+              step={field === 'betrag' ? '0.01' : undefined}
+              min={field === 'betrag' ? '0' : undefined}
+            />
+          )}
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            onClick={() => handleSaveEdit(item)}
+            disabled={updateKostenpunkt.isPending}
+          >
+            {updateKostenpunkt.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            onClick={handleCancelEdit}
+            disabled={updateKostenpunkt.isPending}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      );
+    }
+
+    if (field === 'dokumentId' && displayValue) {
+      const doc = documentMap.get(displayValue as string);
+      return (
+        <button
+          onClick={() => handleDocumentClick(displayValue as string)}
+          className="text-left hover:bg-accent/50 px-2 py-1 rounded transition-colors w-full flex items-center gap-2 text-primary hover:underline"
+        >
+          <FileText className="h-3 w-3" />
+          {doc?.name || 'Unbekanntes Dokument'}
+        </button>
+      );
+    }
+
+    const formattedValue = field === 'betrag' 
+      ? formatCurrency(Number(displayValue))
+      : displayValue || '-';
+
+    return (
+      <button
+        onClick={() => handleStartEdit(item.id, field, displayValue)}
+        className="text-left hover:bg-accent/50 px-2 py-1 rounded transition-colors w-full"
+      >
+        {formattedValue}
+      </button>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Lade Kostendaten...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ErrorBoundary>
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Kostenübersicht</h1>
+            <p className="text-muted-foreground mt-1">
+              Verwalten Sie alle Kosten Ihrer Projekte
+            </p>
+          </div>
+        </div>
+
+        {/* Filters and Sorting */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="status-filter" className="text-sm font-medium">Status:</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger id="status-filter" className="w-[150px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle</SelectItem>
+                    <SelectItem value="bezahlt">Bezahlt</SelectItem>
+                    <SelectItem value="offen">Offen</SelectItem>
+                    <SelectItem value="geplant">Geplant</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="sort-field" className="text-sm font-medium">Sortieren nach:</Label>
+                <Select value={sortField} onValueChange={(value) => setSortField(value as SortField)}>
+                  <SelectTrigger id="sort-field" className="w-[150px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="datum">Datum</SelectItem>
+                    <SelectItem value="betrag">Betrag</SelectItem>
+                    <SelectItem value="beschreibung">Beschreibung</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                >
+                  {sortOrder === 'asc' ? '↑' : '↓'}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Alle Kostenpunkte</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {sortedCostItems.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Keine Kostenpunkte vorhanden</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  {statusFilter !== 'all' 
+                    ? 'Keine Kostenpunkte mit diesem Status gefunden'
+                    : 'Erstellen Sie ein Projekt mit Kostenpunkten, um sie hier zu sehen'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {Object.entries(groupedCostItems).map(([projectId, items], groupIndex) => {
+                  const project = projectMap.get(projectId);
+                  const projectName = project?.name || 'Unbekanntes Projekt';
+                  const isEvenGroup = groupIndex % 2 === 0;
+                  const summary = projectSummaries.find(s => s.projectId === projectId);
+
+                  return (
+                    <div key={projectId} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-primary">{projectName}</h3>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setAddingToProject(addingToProject === projectId ? null : projectId)}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Kostenpunkt hinzufügen
+                        </Button>
+                      </div>
+
+                      {/* Add New Cost Item Form */}
+                      {addingToProject === projectId && (
+                        <Card className="mb-4 border-primary/50">
+                          <CardContent className="pt-6">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="col-span-2 space-y-2">
+                                <Label htmlFor={`new-beschreibung-${projectId}`}>Beschreibung *</Label>
+                                <Input
+                                  id={`new-beschreibung-${projectId}`}
+                                  value={newCostItem.beschreibung}
+                                  onChange={(e) => setNewCostItem({ ...newCostItem, beschreibung: e.target.value })}
+                                  placeholder="z.B. Solaranlage Installation"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor={`new-betrag-${projectId}`}>Betrag (€) *</Label>
+                                <Input
+                                  id={`new-betrag-${projectId}`}
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={newCostItem.betrag}
+                                  onChange={(e) => setNewCostItem({ ...newCostItem, betrag: e.target.value })}
+                                  placeholder="0.00"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor={`new-kategorie-${projectId}`}>Kategorie</Label>
+                                <Select
+                                  value={newCostItem.kategorie}
+                                  onValueChange={(value) => setNewCostItem({ ...newCostItem, kategorie: value })}
+                                >
+                                  <SelectTrigger id={`new-kategorie-${projectId}`}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {COST_CATEGORIES.map((cat) => (
+                                      <SelectItem key={cat} value={cat}>
+                                        {cat}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor={`new-status-${projectId}`}>Status</Label>
+                                <Select
+                                  value={newCostItem.status}
+                                  onValueChange={(value) => setNewCostItem({ ...newCostItem, status: value })}
+                                >
+                                  <SelectTrigger id={`new-status-${projectId}`}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {COST_STATUS.map((status) => (
+                                      <SelectItem key={status} value={status}>
+                                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor={`new-handwerker-${projectId}`}>Handwerker/Firma</Label>
+                                <Input
+                                  id={`new-handwerker-${projectId}`}
+                                  value={newCostItem.handwerker}
+                                  onChange={(e) => setNewCostItem({ ...newCostItem, handwerker: e.target.value })}
+                                  placeholder="Optional"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor={`new-dokument-${projectId}`}>Dokumentverknüpfung</Label>
+                                <Select
+                                  value={newCostItem.dokumentId}
+                                  onValueChange={(value) => setNewCostItem({ ...newCostItem, dokumentId: value })}
+                                >
+                                  <SelectTrigger id={`new-dokument-${projectId}`}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">Kein Dokument</SelectItem>
+                                    {documents.map((doc) => (
+                                      <SelectItem key={doc.id} value={doc.id}>
+                                        {doc.name}
+                                      </SelectItem>
+                                    ))}
+                                    {media.map((m) => (
+                                      <SelectItem key={m.id} value={m.id}>
+                                        {m.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="col-span-2 flex gap-2 justify-end">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setAddingToProject(null);
+                                    setNewCostItem({
+                                      beschreibung: '',
+                                      betrag: '',
+                                      kategorie: 'Material',
+                                      status: 'geplant',
+                                      handwerker: '',
+                                      dokumentId: 'none',
+                                    });
+                                  }}
+                                >
+                                  Abbrechen
+                                </Button>
+                                <Button
+                                  onClick={() => handleAddCostItem(projectId)}
+                                  disabled={addKostenpunkt.isPending}
+                                >
+                                  {addKostenpunkt.isPending ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      Wird hinzugefügt...
+                                    </>
+                                  ) : (
+                                    'Hinzufügen'
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      <div className="rounded-lg border overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Beschreibung</TableHead>
+                              <TableHead className="w-[150px]">Betrag (€)</TableHead>
+                              <TableHead className="w-[150px]">Kategorie</TableHead>
+                              <TableHead className="w-[120px]">Status</TableHead>
+                              <TableHead className="w-[180px]">Handwerker/Firma</TableHead>
+                              <TableHead className="w-[200px]">Dokument</TableHead>
+                              <TableHead className="w-[80px]">Aktionen</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {items.map((item) => (
+                              <TableRow
+                                key={item.id}
+                                className={isEvenGroup ? 'bg-muted/30' : 'bg-background'}
+                              >
+                                <TableCell className="font-medium">
+                                  {item.beschreibung}
+                                </TableCell>
+                                <TableCell>
+                                  {renderEditableCell(item, 'betrag', item.betrag)}
+                                </TableCell>
+                                <TableCell>
+                                  {renderEditableCell(item, 'kategorie', item.kategorie)}
+                                </TableCell>
+                                <TableCell>
+                                  {renderEditableCell(item, 'status', item.status)}
+                                </TableCell>
+                                <TableCell>
+                                  {renderEditableCell(item, 'handwerker', item.handwerker)}
+                                </TableCell>
+                                <TableCell>
+                                  {renderEditableCell(item, 'dokumentId', item.dokumentId)}
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => handleDeleteCostItem(item.projektId, item.id)}
+                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            {/* Project Summary Row */}
+                            {summary && (
+                              <TableRow className="bg-primary/5 font-semibold border-t-2 border-primary/20">
+                                <TableCell className="text-right" colSpan={1}>
+                                  Summe {projectName}:
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-col gap-1">
+                                    <span className="text-sm">Gesamt: {formatCurrency(summary.gesamt)}</span>
+                                    <span className="text-sm text-green-600 dark:text-green-400">Bezahlt: {formatCurrency(summary.bezahlt)}</span>
+                                    <span className="text-sm text-orange-600 dark:text-orange-400">Offen: {formatCurrency(summary.offen)}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell colSpan={5} />
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Total Summary */}
+                <div className="flex justify-end pt-4 border-t-2 border-primary">
+                  <div className="text-right space-y-2">
+                    <p className="text-sm text-muted-foreground font-semibold">Gesamtsumme aller Projekte</p>
+                    <div className="space-y-1">
+                      <p className="text-xl font-bold">Gesamt: {formatCurrency(totalSum)}</p>
+                      <p className="text-lg font-semibold text-green-600 dark:text-green-400">
+                        Bezahlt: {formatCurrency(totalBezahlt)}
+                      </p>
+                      <p className="text-lg font-semibold text-orange-600 dark:text-orange-400">
+                        Offen: {formatCurrency(totalOffen)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* PDF Viewer Modal */}
+      <UnifiedPDFViewer
+        open={pdfViewerOpen}
+        onOpenChange={setPdfViewerOpen}
+        pdfUrl={selectedDocumentUrl}
+        title={selectedDocumentTitle}
+      />
+    </ErrorBoundary>
+  );
+}

@@ -1,0 +1,47 @@
+{
+  "kind": "spec_vs_diff_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-07T13:05:32.880Z",
+  "summary": "Implemented optional project dates with a backend schema/migration and frontend calendar handling for undated projects, and added PDF thumbnail rendering via a new PDFThumbnail component plus global PDF.js initialization. Roadmap appears to include cost-items editing UI wiring. Media deletion backend API implementation is not evidenced in the provided diff summary.",
+  "missing_requirements": [
+    {
+      "id": "REQ-1",
+      "requirement": "Fix Media deletion by implementing a backend `deleteMedia` API and wiring the frontend mutation to it so users can reliably delete images and PDFs without runtime errors (including deleting the stored blob content).",
+      "reason": "The diff summary does not show any backend `deleteMedia` (or equivalent) method being added/modified in `backend/main.mo`, and the frontend summary indicates the mutation calls `actor.deleteUserMedia` (not `deleteMedia`). There is also no evidence shown that blob content is removed on deletion.",
+      "evidence": [
+        "backend/main.mo (truncated; no deleteMedia shown)",
+        "frontend-file-summaries.txt (mentions useDeleteMedia calling actor.deleteUserMedia)"
+      ]
+    }
+  ],
+  "hallucinated_features": [
+    {
+      "description": "Added a persistent localStorage-based PDF thumbnail cache with hashing and quota-management logic.",
+      "reason": "REQ-2 asks for correct and consistent PDF first-page thumbnails with fallback/error handling, but does not request persistent caching or localStorage management.",
+      "evidence": [
+        "frontend/src/components/PDFThumbnail.tsx"
+      ]
+    },
+    {
+      "description": "Added/mentioned navigation wiring and a new Kostenübersicht page/route in the App layout/routing.",
+      "reason": "REQ-3 requires that cost-item edits sync with the existing Kostenübersicht page, but does not request adding a new Kostenübersicht page/route or new navigation behavior.",
+      "evidence": [
+        "frontend-file-summaries.txt (App.tsx mentions routing including the new Kostenübersicht page)",
+        "frontend-file-summaries.txt (AppLayout.tsx mentions navigation including new Kostenübersicht page)"
+      ]
+    }
+  ],
+  "confidence": 0.62,
+  "changed_files": [
+    "backend/main.mo",
+    "backend/migration.mo",
+    "frontend-file-summaries.txt",
+    "frontend/src/components/CalendarView.tsx",
+    "frontend/src/components/CalendarWidget.tsx",
+    "frontend/src/components/DeleteConfirmDialog.tsx",
+    "frontend/src/components/PDFThumbnail.tsx",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/pages/Roadmap.tsx",
+    "project_state.json"
+  ]
+}
