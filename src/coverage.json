@@ -1,22 +1,22 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-07T13:05:32.883Z",
+  "generatedAt": "2026-02-12T18:57:43.492Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 4,
-    "implemented": 4,
+    "total": 3,
+    "implemented": 3,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Fix Media deletion by implementing a backend `deleteMedia` API and wiring the frontend mutation to it so users can reliably delete images and PDFs without runtime errors.",
+        "summary": "Fix the end-to-end \"Create contact\" flow on the Contacts page so a newly created contact is persisted for the logged-in user and appears immediately in the contacts list after submission.",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/hooks/useQueries.ts",
-          "frontend/src/pages/Media.tsx"
+          "frontend/src/pages/Contacts.tsx"
         ],
         "matchedFiles": [
           "frontend/src/hooks/useQueries.ts"
@@ -24,42 +24,26 @@
       },
       {
         "id": "REQ-2",
-        "summary": "Make PDF previews in the Media grid view render correctly and consistently (show a real first-page thumbnail preview instead of a generic file icon when the PDF is valid and reachable).",
+        "summary": "Fix the end-to-end \"Create link\" flow on the Contacts page so a newly created helpful link is persisted for the logged-in user and appears immediately in the links list after submission.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/components/PDFThumbnail.tsx",
-          "frontend/src/pages/Media.tsx"
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/pages/Contacts.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/components/PDFThumbnail.tsx"
+          "frontend/src/hooks/useQueries.ts"
         ]
       },
       {
         "id": "REQ-3",
-        "summary": "Extend the Roadmap project edit dialog to allow adding/editing/removing cost items directly in the editor, and ensure changes are synced with the Kostenübersicht page.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/Roadmap.tsx",
-          "frontend/src/hooks/useQueries.ts"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/Roadmap.tsx",
-          "frontend/src/hooks/useQueries.ts"
-        ]
-      },
-      {
-        "id": "REQ-4",
-        "summary": "Make project start and end dates optional (can be left blank during creation and editing), and update Roadmap/calendar rendering to handle projects without dates gracefully.",
+        "summary": "Ensure no other app functionality or UI behavior is changed beyond what is required to restore \"Create contact\" and \"Create link\" on the Contacts page.",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/hooks/useQueries.ts",
-          "frontend/src/pages/Roadmap.tsx",
-          "frontend/src/components/CalendarView.tsx"
+          "frontend/src/pages/Contacts.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/pages/Roadmap.tsx",
-          "frontend/src/components/CalendarView.tsx"
+          "frontend/src/hooks/useQueries.ts"
         ]
       }
     ]
@@ -68,20 +52,14 @@
     "backend/main.mo",
     "backend/migration.mo",
     "build-request.json",
-    "caffeine.lock.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
     "frontend/src/backend.d.ts",
     "frontend/src/backend.ts",
-    "frontend/src/components/CalendarView.tsx",
-    "frontend/src/components/CalendarWidget.tsx",
-    "frontend/src/components/DeleteConfirmDialog.tsx",
-    "frontend/src/components/PDFThumbnail.tsx",
     "frontend/src/declarations/backend.did.d.ts",
     "frontend/src/declarations/backend.did.js",
     "frontend/src/hooks/useQueries.ts",
-    "frontend/src/pages/Roadmap.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

@@ -1,47 +1,114 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-07T13:05:32.880Z",
-  "summary": "Implemented optional project dates with a backend schema/migration and frontend calendar handling for undated projects, and added PDF thumbnail rendering via a new PDFThumbnail component plus global PDF.js initialization. Roadmap appears to include cost-items editing UI wiring. Media deletion backend API implementation is not evidenced in the provided diff summary.",
+  "generatedAt": "2026-02-12T18:57:43.489Z",
+  "summary": "The diff appears to go far beyond restoring the broken “Create contact” and “Create link” flows. It introduces broad UI/feature changes across many unrelated pages (Dashboard/Roadmap/Media/Documents/AppLayout, etc.) and adds full CRUD for contacts/links rather than only restoring creation. Because key files are truncated (notably backend/main.mo and frontend/src/pages/Contacts.tsx), it’s not possible to conclusively verify that end-to-end create + persistence is correctly implemented for contacts and links, but the scope/constraint violations are clearly evidenced by the file summaries.",
   "missing_requirements": [
     {
       "id": "REQ-1",
-      "requirement": "Fix Media deletion by implementing a backend `deleteMedia` API and wiring the frontend mutation to it so users can reliably delete images and PDFs without runtime errors (including deleting the stored blob content).",
-      "reason": "The diff summary does not show any backend `deleteMedia` (or equivalent) method being added/modified in `backend/main.mo`, and the frontend summary indicates the mutation calls `actor.deleteUserMedia` (not `deleteMedia`). There is also no evidence shown that blob content is removed on deletion.",
+      "requirement": "Fix the end-to-end \"Create contact\" flow on the Contacts page so a newly created contact is persisted for the logged-in user and appears immediately in the contacts list after submission.",
+      "reason": "The diff summary indicates contact CRUD hooks exist, but the backend implementation and the Contacts page submission wiring are truncated/not shown. There is insufficient evidence that a create-contact call is correctly persisted under the caller and returned by the existing contacts list query, and that the Contacts page submits without console errors.",
       "evidence": [
-        "backend/main.mo (truncated; no deleteMedia shown)",
-        "frontend-file-summaries.txt (mentions useDeleteMedia calling actor.deleteUserMedia)"
+        "backend/main.mo (truncated)",
+        "frontend-file-summaries.txt (Contacts.tsx described but actual diff content not shown)",
+        "frontend/src/hooks/useQueries.ts (truncated)"
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "requirement": "Fix the end-to-end \"Create link\" flow on the Contacts page so a newly created helpful link is persisted for the logged-in user and appears immediately in the links list after submission.",
+      "reason": "The diff summary indicates helpful link CRUD hooks exist, but the backend implementation and the Contacts page submission wiring are truncated/not shown. There is insufficient evidence that a create-link call is correctly persisted under the caller and returned by the existing links list query, and that the Contacts page submits without console errors.",
+      "evidence": [
+        "backend/main.mo (truncated)",
+        "frontend-file-summaries.txt (Contacts.tsx described but actual diff content not shown)",
+        "frontend/src/hooks/useQueries.ts (truncated)"
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "requirement": "Ensure no other app functionality or UI behavior is changed beyond what is required to restore \"Create contact\" and \"Create link\" on the Contacts page.",
+      "reason": "Multiple unrelated pages/components are described as changed with substantial new/altered behavior (e.g., Dashboard widgets/calendar changes, Roadmap timeline and cost items integration, Media filtering/drag-drop reordering, Documents multi-file upload, global PDF.js worker initialization, new Kostenübersicht page/nav). This violates the constraint to not introduce new features beyond restoring the two create flows.",
+      "evidence": [
+        "frontend-file-summaries.txt",
+        "frontend/src/hooks/useQueries.ts (truncated)",
+        "frontend/src/App.tsx (referenced in frontend-file-summaries.txt)",
+        "frontend/src/pages/Dashboard.tsx (referenced in frontend-file-summaries.txt)",
+        "frontend/src/pages/Roadmap.tsx (referenced in frontend-file-summaries.txt)",
+        "frontend/src/pages/Media.tsx (referenced in frontend-file-summaries.txt)",
+        "frontend/src/pages/Documents.tsx (referenced in frontend-file-summaries.txt)",
+        "frontend/src/components/AppLayout.tsx (referenced in frontend-file-summaries.txt)"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Added a persistent localStorage-based PDF thumbnail cache with hashing and quota-management logic.",
-      "reason": "REQ-2 asks for correct and consistent PDF first-page thumbnails with fallback/error handling, but does not request persistent caching or localStorage management.",
+      "description": "Implemented full Contacts/Links CRUD (update/delete) instead of only restoring create flows.",
+      "reason": "BuildRequest constraints say not to introduce new features on Contacts page beyond restoring contact creation and link creation; full CRUD goes beyond that scope.",
       "evidence": [
-        "frontend/src/components/PDFThumbnail.tsx"
+        "frontend-file-summaries.txt (\"Contacts.tsx\": \"full CRUD operations\")",
+        "frontend-file-summaries.txt (\"useQueries.ts\": \"newly implemented Contact and HelpfulLink CRUD hooks ... useUpdateContact/useDeleteContact ... useUpdateLink/useDeleteLink\")"
       ]
     },
     {
-      "description": "Added/mentioned navigation wiring and a new Kostenübersicht page/route in the App layout/routing.",
-      "reason": "REQ-3 requires that cost-item edits sync with the existing Kostenübersicht page, but does not request adding a new Kostenübersicht page/route or new navigation behavior.",
+      "description": "Added/introduced a new \"Kostenübersicht\" page and navigation updates.",
+      "reason": "Not requested; violates REQ-3 scope constraint to avoid unrelated UI/feature changes.",
       "evidence": [
-        "frontend-file-summaries.txt (App.tsx mentions routing including the new Kostenübersicht page)",
-        "frontend-file-summaries.txt (AppLayout.tsx mentions navigation including new Kostenübersicht page)"
+        "frontend-file-summaries.txt (App.tsx: \"routing between pages including the new Kostenübersicht page\")",
+        "frontend-file-summaries.txt (AppLayout.tsx: \"navigation including Kontakte and new Kostenübersicht pages\")"
+      ]
+    },
+    {
+      "description": "Dashboard redesign/behavior changes (unified upcoming tasks widget, enhanced calendar click-through).",
+      "reason": "Not requested; violates REQ-3 scope constraint.",
+      "evidence": [
+        "frontend-file-summaries.txt (Dashboard.tsx description)"
+      ]
+    },
+    {
+      "description": "Roadmap feature changes (timeline create/edit behavior, cost items integration, removal/addition of hooks/types).",
+      "reason": "Not requested; violates REQ-3 scope constraint.",
+      "evidence": [
+        "frontend-file-summaries.txt (Roadmap.tsx description)"
+      ]
+    },
+    {
+      "description": "Documents page changes (multi-file upload, blob conversion workflow, progress indicators).",
+      "reason": "Not requested; violates REQ-3 scope constraint.",
+      "evidence": [
+        "frontend-file-summaries.txt (Documents.tsx description)"
+      ]
+    },
+    {
+      "description": "Media page changes (comprehensive filters, drag-and-drop reordering, grid/list toggle, PDF/image preview changes).",
+      "reason": "Not requested; violates REQ-3 scope constraint.",
+      "evidence": [
+        "frontend-file-summaries.txt (Media.tsx description)",
+        "frontend/package.json (referenced as adding @dnd-kit packages)"
+      ]
+    },
+    {
+      "description": "Global PDF.js worker initialization and PDF viewer changes.",
+      "reason": "Not requested; violates REQ-3 scope constraint.",
+      "evidence": [
+        "frontend-file-summaries.txt (App.tsx: PDF.js worker initialized)",
+        "frontend-file-summaries.txt (PDFViewer.tsx description)"
+      ]
+    },
+    {
+      "description": "Added backend migration module wiring (backend/migration.mo and '(with migration = Migration.run)' usage).",
+      "reason": "Not requested by BuildRequest; may be legitimate internally, but it is additional scope beyond explicitly requested create-flow fixes.",
+      "evidence": [
+        "backend/migration.mo",
+        "backend/main.mo (shows import Migration \"migration\" and '(with migration = Migration.run)')"
       ]
     }
   ],
-  "confidence": 0.62,
+  "confidence": 0.72,
   "changed_files": [
     "backend/main.mo",
     "backend/migration.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/components/CalendarView.tsx",
-    "frontend/src/components/CalendarWidget.tsx",
-    "frontend/src/components/DeleteConfirmDialog.tsx",
-    "frontend/src/components/PDFThumbnail.tsx",
     "frontend/src/hooks/useQueries.ts",
-    "frontend/src/pages/Roadmap.tsx",
     "project_state.json"
   ]
 }

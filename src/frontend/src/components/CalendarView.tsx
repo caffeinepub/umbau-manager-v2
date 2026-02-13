@@ -1,240 +1,170 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
-import type { Project } from '../backend';
+import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import type { Project, Task } from '../backend';
 
 interface CalendarViewProps {
   projects: Project[];
-  getCategoryColor: (index: number) => string;
-  kategorien: string[];
+  tasks?: Task[];
+  onTaskClick?: (taskId: string) => void;
 }
 
-export function CalendarView({ projects, getCategoryColor, kategorien }: CalendarViewProps) {
+export function CalendarView({ projects, tasks = [], onTaskClick }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
 
-  const formatDate = (timestamp?: bigint) => {
-    if (!timestamp) return null;
-    return new Date(Number(timestamp) / 1000000);
-  };
-
-  const getMonthName = (date: Date) => {
-    return date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
-  };
-
-  const getWeekRange = (date: Date) => {
-    const start = new Date(date);
-    start.setDate(date.getDate() - date.getDay() + 1);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    return {
-      start,
-      end,
-      label: `${start.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })} - ${end.toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}`,
-    };
-  };
-
-  const getDaysInMonth = (date: Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
+  const daysInMonth = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+    const daysCount = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
 
     const days: (Date | null)[] = [];
     
+    // Add empty cells for days before the first day of the month
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(null);
     }
     
-    for (let day = 1; day <= daysInMonth; day++) {
-      days.push(new Date(year, month, day));
+    // Add all days of the month
+    for (let i = 1; i <= daysCount; i++) {
+      days.push(new Date(year, month, i));
     }
     
     return days;
+  }, [currentDate]);
+
+  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const getProjectsForDate = (date: Date | null) => {
+    if (!date) return [];
+    
+    return projects.filter((project) => {
+      // Only include projects with both start and end dates
+      if (!project.startDate || !project.endDate) {
+        return false;
+      }
+
+      const projectStart = new Date(Number(project.startDate) / 1000000);
+      const projectEnd = new Date(Number(project.endDate) / 1000000);
+      
+      // Check if date falls within project range
+      return date >= projectStart && date <= projectEnd;
+    });
   };
 
-  const getWeekDays = (date: Date) => {
-    const { start } = getWeekRange(date);
-    const days: Date[] = [];
-    for (let i = 0; i < 7; i++) {
-      const day = new Date(start);
-      day.setDate(start.getDate() + i);
-      days.push(day);
-    }
-    return days;
-  };
-
-  const getProjectsForDay = (day: Date) => {
-    return projects.filter(project => {
-      // Skip projects without complete date range
-      if (!project.startDate || !project.endDate) return false;
+  const getTasksForDate = (date: Date | null) => {
+    if (!date) return [];
+    
+    return tasks.filter((task) => {
+      if (task.status === 'Erledigt') return false;
       
-      const startDate = formatDate(project.startDate);
-      const endDate = formatDate(project.endDate);
-      
-      if (!startDate || !endDate) return false;
-      
-      const dayStart = new Date(day);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(day);
-      dayEnd.setHours(23, 59, 59, 999);
-      
+      const taskDate = new Date(Number(task.faelligkeit) / 1000000);
+      // Compare only the date part (ignore time)
       return (
-        (startDate <= dayEnd && endDate >= dayStart) ||
-        (startDate >= dayStart && startDate <= dayEnd) ||
-        (endDate >= dayStart && endDate <= dayEnd)
+        taskDate.getFullYear() === date.getFullYear() &&
+        taskDate.getMonth() === date.getMonth() &&
+        taskDate.getDate() === date.getDate()
       );
     });
   };
 
-  // Get projects without complete date range for separate display
-  const undatedProjects = projects.filter(p => !p.startDate || !p.endDate);
-
-  const goToPrevious = () => {
-    if (viewMode === 'month') {
-      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-    } else {
-      const newDate = new Date(currentDate);
-      newDate.setDate(currentDate.getDate() - 7);
-      setCurrentDate(newDate);
-    }
+  const formatTaskTime = (timestamp: bigint) => {
+    const date = new Date(Number(timestamp) / 1000000);
+    return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const goToNext = () => {
-    if (viewMode === 'month') {
-      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-    } else {
-      const newDate = new Date(currentDate);
-      newDate.setDate(currentDate.getDate() + 7);
-      setCurrentDate(newDate);
-    }
+  // Get projects without complete date ranges for separate display
+  const undatedProjects = useMemo(() => {
+    return projects.filter(p => !p.startDate || !p.endDate);
+  }, [projects]);
+
+  const previousMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   };
 
-  const goToToday = () => {
-    setCurrentDate(new Date());
+  const nextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
 
-  const days = viewMode === 'month' ? getDaysInMonth(currentDate) : getWeekDays(currentDate);
-  const weekRange = viewMode === 'week' ? getWeekRange(currentDate) : null;
-
-  const isToday = (day: Date | null) => {
-    if (!day) return false;
-    const today = new Date();
-    return (
-      day.getDate() === today.getDate() &&
-      day.getMonth() === today.getMonth() &&
-      day.getFullYear() === today.getFullYear()
-    );
-  };
+  const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <CalendarIcon className="h-5 w-5" />
-              Calendar View
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1 border rounded-lg p-1">
-                <Button
-                  size="sm"
-                  variant={viewMode === 'month' ? 'default' : 'ghost'}
-                  onClick={() => setViewMode('month')}
-                  className="h-7 px-3"
-                >
-                  Month
-                </Button>
-                <Button
-                  size="sm"
-                  variant={viewMode === 'week' ? 'default' : 'ghost'}
-                  onClick={() => setViewMode('week')}
-                  className="h-7 px-3"
-                >
-                  Week
-                </Button>
-              </div>
-              <Button size="sm" variant="outline" onClick={goToToday}>
-                Today
+            <CardTitle>{monthName}</CardTitle>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={previousMonth}>
+                <ChevronLeft className="h-4 w-4" />
               </Button>
-              <div className="flex items-center gap-1">
-                <Button size="sm" variant="outline" onClick={goToPrevious}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="min-w-[200px] text-center font-semibold">
-                  {viewMode === 'month' ? getMonthName(currentDate) : weekRange?.label}
-                </div>
-                <Button size="sm" variant="outline" onClick={goToNext}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button variant="outline" size="sm" onClick={nextMonth}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            <div className="grid grid-cols-7 gap-2">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                <div key={day} className="text-center text-sm font-semibold text-muted-foreground py-2">
-                  {day}
+          <div className="grid grid-cols-7 gap-2">
+            {weekDays.map((day) => (
+              <div key={day} className="text-center font-semibold text-sm p-2">
+                {day}
+              </div>
+            ))}
+            {daysInMonth.map((day, index) => {
+              const dayProjects = getProjectsForDate(day);
+              const dayTasks = getTasksForDate(day);
+              
+              return (
+                <div
+                  key={index}
+                  className={`min-h-24 p-2 border rounded-lg ${
+                    day ? 'bg-background hover:bg-accent/50' : 'bg-muted/30'
+                  } transition-colors`}
+                >
+                  {day && (
+                    <>
+                      <div className="text-sm font-medium mb-1">
+                        {day.getDate()}
+                      </div>
+                      <div className="space-y-1">
+                        {/* Render projects */}
+                        {dayProjects.slice(0, 2).map((project) => (
+                          <div
+                            key={project.id}
+                            className="text-xs p-1 rounded truncate"
+                            style={{ backgroundColor: project.color + '20', color: project.color }}
+                            title={project.name}
+                          >
+                            {project.name}
+                          </div>
+                        ))}
+                        {/* Render tasks with time */}
+                        {dayTasks.slice(0, 2).map((task) => (
+                          <div
+                            key={task.id}
+                            onClick={() => onTaskClick?.(task.id)}
+                            className="text-xs p-1 rounded truncate bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors flex items-center gap-1"
+                            title={`${task.titel} - ${formatTaskTime(task.faelligkeit)}`}
+                          >
+                            <Clock className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{formatTaskTime(task.faelligkeit)} {task.titel}</span>
+                          </div>
+                        ))}
+                        {(dayProjects.length + dayTasks.length) > 2 && (
+                          <div className="text-xs text-muted-foreground">
+                            +{(dayProjects.length + dayTasks.length) - 2} more
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-7 gap-2">
-              {days.map((day, index) => {
-                const dayProjects = day ? getProjectsForDay(day) : [];
-                const today = isToday(day);
-
-                return (
-                  <div
-                    key={index}
-                    className={`min-h-[120px] border rounded-lg p-2 ${
-                      !day ? 'bg-muted/30' : today ? 'bg-primary/10 border-primary' : 'bg-card'
-                    } ${viewMode === 'week' ? 'min-h-[200px]' : ''}`}
-                  >
-                    {day && (
-                      <>
-                        <div className={`text-sm font-semibold mb-2 ${today ? 'text-primary' : ''}`}>
-                          {day.getDate()}
-                        </div>
-                        <div className="space-y-1">
-                          {dayProjects.slice(0, viewMode === 'week' ? 10 : 3).map(project => {
-                            const categoryIndex = kategorien.indexOf(project.kategorie);
-                            
-                            return (
-                              <div
-                                key={project.id}
-                                className="text-xs p-1.5 rounded border truncate cursor-pointer hover:bg-black/30 dark:hover:bg-white/30 transition-colors"
-                                style={{ 
-                                  backgroundColor: `${project.color || '#3b82f6'}20`,
-                                  borderColor: project.color || '#3b82f6'
-                                }}
-                                title={`${project.name} - ${project.kunde}`}
-                              >
-                                <div className="font-medium truncate">{project.name}</div>
-                                {viewMode === 'week' && (
-                                  <div className="text-[10px] opacity-75 truncate">{project.kunde}</div>
-                                )}
-                              </div>
-                            );
-                          })}
-                          {dayProjects.length > (viewMode === 'week' ? 10 : 3) && (
-                            <div className="text-[10px] text-muted-foreground text-center">
-                              +{dayProjects.length - (viewMode === 'week' ? 10 : 3)} more
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -243,28 +173,24 @@ export function CalendarView({ projects, getCategoryColor, kategorien }: Calenda
       {undatedProjects.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Undated Projects</CardTitle>
+            <CardTitle>Undated Projects</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {undatedProjects.map(project => {
-                const categoryIndex = kategorien.indexOf(project.kategorie);
-                
-                return (
-                  <div
-                    key={project.id}
-                    className="p-3 rounded-lg border"
-                    style={{ 
-                      backgroundColor: `${project.color || '#3b82f6'}10`,
-                      borderColor: project.color || '#3b82f6'
-                    }}
-                  >
-                    <div className="font-medium truncate">{project.name}</div>
-                    <div className="text-sm text-muted-foreground truncate">{project.kunde}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{project.kategorie}</div>
+            <div className="space-y-2">
+              {undatedProjects.map((project) => (
+                <div
+                  key={project.id}
+                  className="p-3 rounded-lg border"
+                  style={{ borderLeftColor: project.color, borderLeftWidth: '4px' }}
+                >
+                  <div className="font-medium">{project.name}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {!project.startDate && !project.endDate && 'No dates set'}
+                    {project.startDate && !project.endDate && `Start: ${new Date(Number(project.startDate) / 1000000).toLocaleDateString('de-DE')}`}
+                    {!project.startDate && project.endDate && `End: ${new Date(Number(project.endDate) / 1000000).toLocaleDateString('de-DE')}`}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

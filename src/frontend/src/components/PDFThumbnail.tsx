@@ -213,49 +213,38 @@ export function PDFThumbnail({ pdfUrl, className = '', fallbackIcon = true }: PD
     };
   }, [pdfUrl]);
 
-  // Show fallback icon on error
-  if (error && fallbackIcon) {
-    return (
-      <div className={`flex items-center justify-center bg-muted ${className}`}>
-        <FileText className="h-12 w-12 text-muted-foreground" />
-      </div>
-    );
-  }
+  // Always render canvas (hidden) so ref is available during loading
+  return (
+    <>
+      {/* Hidden canvas for rendering - always mounted */}
+      <canvas 
+        ref={canvasRef} 
+        style={{ position: 'absolute', left: '-9999px', visibility: 'hidden', pointerEvents: 'none' }}
+      />
+      
+      {/* Show fallback icon on error */}
+      {error && fallbackIcon && (
+        <div className={`flex items-center justify-center bg-muted ${className}`}>
+          <FileText className="h-12 w-12 text-muted-foreground" />
+        </div>
+      )}
 
-  // Show loading state
-  if (isLoading) {
-    return (
-      <div className={`flex items-center justify-center bg-muted animate-pulse ${className}`}>
-        <FileText className="h-12 w-12 text-muted-foreground" />
-      </div>
-    );
-  }
+      {/* Show loading state */}
+      {isLoading && !error && (
+        <div className={`flex items-center justify-center bg-muted animate-pulse ${className}`}>
+          <FileText className="h-12 w-12 text-muted-foreground" />
+        </div>
+      )}
 
-  // Show the thumbnail image if available
-  if (thumbnailDataUrl) {
-    return (
-      <>
+      {/* Show the thumbnail image if available */}
+      {thumbnailDataUrl && !error && (
         <img 
           src={thumbnailDataUrl} 
           alt="PDF Preview"
           className={`object-contain ${className}`}
           style={{ maxWidth: '100%', height: 'auto' }}
         />
-        {/* Hidden canvas for rendering - always mounted */}
-        <canvas 
-          ref={canvasRef} 
-          style={{ position: 'absolute', left: '-9999px', visibility: 'hidden', pointerEvents: 'none' }}
-        />
-      </>
-    );
-  }
-
-  // Always render canvas (even if hidden) so ref is available during loading
-  return (
-    <canvas 
-      ref={canvasRef} 
-      className={className}
-      style={{ position: 'absolute', left: '-9999px', visibility: 'hidden', pointerEvents: 'none' }}
-    />
+      )}
+    </>
   );
 }

@@ -13,10 +13,13 @@ import { Badge } from '@/components/ui/badge';
 import { DynamicSelect } from '../components/DynamicSelect';
 import { BaseDialog } from '../components/BaseDialog';
 import { CostItemsSection } from '../components/CostItemsSection';
+import { ProjectTimelineInput, TimelineMode } from '../components/ProjectTimelineInput';
 import { useFocusOnMount } from '../lib/focusManager';
 import { getKategorien, addKategorie, getGewerke, addGewerke, getBereiche, addBereich } from '../lib/customCategories';
-import { isThisWeek } from '../lib/dateUtils';
-import { CalendarWidget } from '../components/CalendarWidget';
+import { isThisWeek, monthToTimestamps, validateMonthRange } from '../lib/dateUtils';
+import { CalendarView } from '../components/CalendarView';
+import { UpcomingTasksWidget } from '../components/UpcomingTasksWidget';
+import { setSelectedTaskId } from '../utils/urlParams';
 import { toast } from 'sonner';
 import { UserType } from '../backend';
 import type { CostItem } from '../backend';
@@ -35,12 +38,15 @@ export default function Dashboard() {
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
   const [costItems, setCostItems] = useState<CostItem[]>([]);
+  const [timelineMode, setTimelineMode] = useState<TimelineMode>('exact');
   const [newProject, setNewProject] = useState({
     name: '',
     kunde: '',
     color: '#3b82f6',
-    startDate: '',
-    endDate: '',
+    exactStartDate: '',
+    exactEndDate: '',
+    monthStartDate: '',
+    monthEndDate: '',
     kategorie: 'none',
     verantwortlicherKontakt: 'none',
   });
@@ -51,7 +57,8 @@ export default function Dashboard() {
     dringlichkeit: '1',
     bereich: 'none',
     kategorie: '',
-    faelligkeit: '',
+    faelligkeitDate: '',
+    faelligkeitTime: '',
     verantwortlicherKontakt: 'none',
     projectId: 'none',
   });
@@ -128,32 +135,66 @@ export default function Dashboard() {
     },
   ];
 
-  const upcomingDeadlines = [...aufgabenTasks, ...dieseWocheTasks, ...feedbackTasks]
-    .sort((a, b) => Number(a.faelligkeit - b.faelligkeit))
-    .slice(0, 5);
-
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // For private users, kunde is not required in the form (will be auto-filled by backend)
-    // For business users, kunde is required
-    if (!newProject.name.trim() || !newProject.startDate || !newProject.endDate || !newProject.kategorie || newProject.kategorie === 'none') {
+    // Validate required fields
+    if (!newProject.name.trim() || !newProject.kategorie || newProject.kategorie === 'none') {
+      toast.error('Project name and category are required');
       return;
     }
     
     if (!isPrivateUser && !newProject.kunde.trim()) {
-      toast.error('Kunde ist erforderlich');
+      toast.error('Customer is required');
       return;
     }
 
     if (!userPrincipal) {
-      toast.error('Benutzer nicht authentifiziert');
+      toast.error('User not authenticated');
       return;
     }
 
+    let startTimestamp: bigint | null = null;
+    let endTimestamp: bigint | null = null;
+
+    // Handle timeline based on mode
+    if (timelineMode === 'exact') {
+      // Validate date range only if both dates are provided
+      if (newProject.exactStartDate && newProject.exactEndDate) {
+        const start = new Date(newProject.exactStartDate);
+        const end = new Date(newProject.exactEndDate);
+        if (end < start) {
+          toast.error('End date cannot be before start date');
+          return;
+        }
+        startTimestamp = BigInt(start.getTime() * 1000000);
+        endTimestamp = BigInt(end.getTime() * 1000000);
+      } else if (newProject.exactStartDate) {
+        startTimestamp = BigInt(new Date(newProject.exactStartDate).getTime() * 1000000);
+      } else if (newProject.exactEndDate) {
+        endTimestamp = BigInt(new Date(newProject.exactEndDate).getTime() * 1000000);
+      }
+    } else {
+      // Month range mode
+      if (newProject.monthStartDate && newProject.monthEndDate) {
+        if (!validateMonthRange(newProject.monthStartDate, newProject.monthEndDate)) {
+          toast.error('End month cannot be before start month');
+          return;
+        }
+        const startRange = monthToTimestamps(newProject.monthStartDate);
+        const endRange = monthToTimestamps(newProject.monthEndDate);
+        startTimestamp = startRange.start;
+        endTimestamp = endRange.end;
+      } else if (newProject.monthStartDate) {
+        const startRange = monthToTimestamps(newProject.monthStartDate);
+        startTimestamp = startRange.start;
+      } else if (newProject.monthEndDate) {
+        const endRange = monthToTimestamps(newProject.monthEndDate);
+        endTimestamp = endRange.end;
+      }
+    }
+
     const projectId = `project_${Date.now()}`;
-    const startTimestamp = BigInt(new Date(newProject.startDate).getTime() * 1000000);
-    const endTimestamp = BigInt(new Date(newProject.endDate).getTime() * 1000000);
 
     // Ensure all cost items have the correct owner before submission
     const validatedCostItems = costItems.map(item => ({
@@ -165,7 +206,7 @@ export default function Dashboard() {
     await createProject.mutateAsync({
       id: projectId,
       name: newProject.name,
-      kunde: isPrivateUser ? null : newProject.kunde, // Pass null for private users, backend will auto-fill
+      kunde: isPrivateUser ? null : newProject.kunde,
       color: newProject.color,
       start: startTimestamp,
       end: endTimestamp,
@@ -178,21 +219,36 @@ export default function Dashboard() {
       name: '',
       kunde: '',
       color: '#3b82f6',
-      startDate: '',
-      endDate: '',
+      exactStartDate: '',
+      exactEndDate: '',
+      monthStartDate: '',
+      monthEndDate: '',
       kategorie: 'none',
       verantwortlicherKontakt: 'none',
     });
     setCostItems([]);
+    setTimelineMode('exact');
     setIsCreateProjectOpen(false);
   };
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTask.titel.trim() || !newTask.gewerke || newTask.gewerke === 'none' || !newTask.bereich || newTask.bereich === 'none' || !newTask.faelligkeit) return;
+    if (!newTask.titel.trim() || !newTask.gewerke || newTask.gewerke === 'none' || !newTask.bereich || newTask.bereich === 'none' || !newTask.faelligkeitDate) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
 
     const taskId = `task_${Date.now()}`;
-    const fälligkeitTimestamp = BigInt(new Date(newTask.faelligkeit).getTime() * 1000000);
+    
+    // Combine date and time
+    let fälligkeitTimestamp: bigint;
+    if (newTask.faelligkeitTime) {
+      const dateTimeStr = `${newTask.faelligkeitDate}T${newTask.faelligkeitTime}`;
+      fälligkeitTimestamp = BigInt(new Date(dateTimeStr).getTime() * 1000000);
+    } else {
+      // Default to start of day if no time specified
+      fälligkeitTimestamp = BigInt(new Date(newTask.faelligkeitDate).getTime() * 1000000);
+    }
 
     await createTask.mutateAsync({
       id: taskId,
@@ -215,20 +271,12 @@ export default function Dashboard() {
       dringlichkeit: '1',
       bereich: 'none',
       kategorie: '',
-      faelligkeit: '',
+      faelligkeitDate: '',
+      faelligkeitTime: '',
       verantwortlicherKontakt: 'none',
       projectId: 'none',
     });
     setIsCreateTaskOpen(false);
-  };
-
-  const handleQuickStatusChange = async (taskId: string, newStatus: string) => {
-    await changeTaskStatus.mutateAsync({ taskId, newStatus });
-  };
-
-  const formatDate = (timestamp: bigint) => {
-    const date = new Date(Number(timestamp) / 1000000);
-    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
   const formatCurrency = (amount: number) => {
@@ -236,25 +284,6 @@ export default function Dashboard() {
       style: 'currency',
       currency: 'EUR',
     }).format(amount);
-  };
-
-  const getDringlichkeitColor = (dringlichkeit: bigint) => {
-    const level = Number(dringlichkeit);
-    if (level === 3) return 'bg-red-500';
-    if (level === 2) return 'bg-orange-500';
-    return 'bg-green-500';
-  };
-
-  const getContactName = (contactId?: string) => {
-    if (!contactId) return null;
-    const contact = contacts.find(c => c.id === contactId);
-    return contact?.name;
-  };
-
-  const getProjectName = (projectId?: string) => {
-    if (!projectId) return null;
-    const project = projects?.find(p => p.id === projectId);
-    return project?.name;
   };
 
   const handleAddKategorie = (newKat: string) => {
@@ -278,6 +307,12 @@ export default function Dashboard() {
     window.dispatchEvent(event);
   };
 
+  const handleTaskClick = (taskId: string) => {
+    setSelectedTaskId(taskId);
+    const event = new CustomEvent('navigate', { detail: { page: 'tasks' } });
+    window.dispatchEvent(event);
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-8">
       <div className="flex items-center justify-between">
@@ -292,7 +327,10 @@ export default function Dashboard() {
             open={isCreateProjectOpen}
             onOpenChange={(open) => {
               setIsCreateProjectOpen(open);
-              if (!open) setCostItems([]);
+              if (!open) {
+                setCostItems([]);
+                setTimelineMode('exact');
+              }
             }}
             title="Neues Projekt erstellen"
             description="Erstellen Sie ein neues Bauprojekt mit Kostenpunkten"
@@ -342,28 +380,20 @@ export default function Dashboard() {
                   </span>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="startDate">Startdatum *</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={newProject.startDate}
-                    onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="endDate">Enddatum *</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={newProject.endDate}
-                    onChange={(e) => setNewProject({ ...newProject, endDate: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
+
+              <ProjectTimelineInput
+                mode={timelineMode}
+                onModeChange={setTimelineMode}
+                exactStartDate={newProject.exactStartDate}
+                exactEndDate={newProject.exactEndDate}
+                monthStartDate={newProject.monthStartDate}
+                monthEndDate={newProject.monthEndDate}
+                onExactStartChange={(value) => setNewProject({ ...newProject, exactStartDate: value })}
+                onExactEndChange={(value) => setNewProject({ ...newProject, exactEndDate: value })}
+                onMonthStartChange={(value) => setNewProject({ ...newProject, monthStartDate: value })}
+                onMonthEndChange={(value) => setNewProject({ ...newProject, monthEndDate: value })}
+              />
+
               <DynamicSelect
                 id="kategorie"
                 label="Kategorie"
@@ -404,7 +434,7 @@ export default function Dashboard() {
                   Abbrechen
                 </Button>
                 <Button type="submit" disabled={createProject.isPending}>
-                  {createProject.isPending ? 'Wird erstellt...' : 'Erstellen'}
+                  {createProject.isPending ? 'Erstelle...' : 'Projekt erstellen'}
                 </Button>
               </div>
             </form>
@@ -414,11 +444,11 @@ export default function Dashboard() {
             open={isCreateTaskOpen}
             onOpenChange={setIsCreateTaskOpen}
             title="Neue Aufgabe erstellen"
-            description="Erstellen Sie eine neue Aufgabe für Ihr Bauprojekt"
+            description="Erstellen Sie eine neue Aufgabe für Ihr Projekt"
             trigger={
               <Button variant="outline">
                 <Plus className="h-4 w-4 mr-2" />
-                Aufgabe hinzufügen
+                Aufgabe erstellen
               </Button>
             }
           >
@@ -430,7 +460,7 @@ export default function Dashboard() {
                   id="titel"
                   value={newTask.titel}
                   onChange={(e) => setNewTask({ ...newTask, titel: e.target.value })}
-                  placeholder="Aufgabentitel"
+                  placeholder="z.B. Dachziegel bestellen"
                   required
                 />
               </div>
@@ -440,42 +470,20 @@ export default function Dashboard() {
                   id="beschreibung"
                   value={newTask.beschreibung}
                   onChange={(e) => setNewTask({ ...newTask, beschreibung: e.target.value })}
-                  placeholder="Detaillierte Beschreibung..."
+                  placeholder="Detaillierte Beschreibung der Aufgabe..."
                   rows={3}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <DynamicSelect
-                  id="gewerke"
-                  label="Gewerke"
-                  value={newTask.gewerke}
-                  onValueChange={(value) => setNewTask({ ...newTask, gewerke: value })}
-                  options={gewerkeOptions}
-                  onAddOption={handleAddGewerke}
-                  placeholder="Wählen..."
-                  required
-                />
-                <DynamicSelect
-                  id="bereich"
-                  label="Bereich"
-                  value={newTask.bereich}
-                  onValueChange={(value) => setNewTask({ ...newTask, bereich: value })}
-                  options={bereicheOptions}
-                  onAddOption={handleAddBereich}
-                  placeholder="Wählen..."
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="faelligkeit">Fälligkeit *</Label>
-                <Input
-                  id="faelligkeit"
-                  type="date"
-                  value={newTask.faelligkeit}
-                  onChange={(e) => setNewTask({ ...newTask, faelligkeit: e.target.value })}
-                  required
-                />
-              </div>
+              <DynamicSelect
+                id="gewerke"
+                label="Gewerke"
+                value={newTask.gewerke}
+                onValueChange={(value) => setNewTask({ ...newTask, gewerke: value })}
+                options={gewerkeOptions}
+                onAddOption={handleAddGewerke}
+                placeholder="Gewerke wählen..."
+                required
+              />
               <div className="space-y-2">
                 <Label htmlFor="dringlichkeit">Dringlichkeit</Label>
                 <Select value={newTask.dringlichkeit} onValueChange={(value) => setNewTask({ ...newTask, dringlichkeit: value })}>
@@ -486,6 +494,62 @@ export default function Dashboard() {
                     <SelectItem value="1">Niedrig</SelectItem>
                     <SelectItem value="2">Mittel</SelectItem>
                     <SelectItem value="3">Hoch</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <DynamicSelect
+                id="bereich"
+                label="Bereich"
+                value={newTask.bereich}
+                onValueChange={(value) => setNewTask({ ...newTask, bereich: value })}
+                options={bereicheOptions}
+                onAddOption={handleAddBereich}
+                placeholder="Bereich wählen..."
+                required
+              />
+              <div className="space-y-2">
+                <Label htmlFor="kategorie">Kategorie</Label>
+                <Input
+                  id="kategorie"
+                  value={newTask.kategorie}
+                  onChange={(e) => setNewTask({ ...newTask, kategorie: e.target.value })}
+                  placeholder="z.B. Planung, Ausführung..."
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="faelligkeitDate">Fälligkeitsdatum *</Label>
+                  <Input
+                    id="faelligkeitDate"
+                    type="date"
+                    value={newTask.faelligkeitDate}
+                    onChange={(e) => setNewTask({ ...newTask, faelligkeitDate: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="faelligkeitTime">Uhrzeit</Label>
+                  <Input
+                    id="faelligkeitTime"
+                    type="time"
+                    value={newTask.faelligkeitTime}
+                    onChange={(e) => setNewTask({ ...newTask, faelligkeitTime: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="verantwortlicherKontakt">Verantwortlicher Kontakt</Label>
+                <Select value={newTask.verantwortlicherKontakt} onValueChange={(value) => setNewTask({ ...newTask, verantwortlicherKontakt: value })}>
+                  <SelectTrigger id="verantwortlicherKontakt">
+                    <SelectValue placeholder="Kontakt wählen..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Kein Kontakt</SelectItem>
+                    {contacts.map((contact) => (
+                      <SelectItem key={contact.id} value={contact.id}>
+                        {contact.name} {contact.firma && `(${contact.firma})`}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -505,28 +569,12 @@ export default function Dashboard() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="verantwortlicherKontakt">Verantwortlicher Kontakt</Label>
-                <Select value={newTask.verantwortlicherKontakt} onValueChange={(value) => setNewTask({ ...newTask, verantwortlicherKontakt: value })}>
-                  <SelectTrigger id="verantwortlicherKontakt">
-                    <SelectValue placeholder="Kontakt wählen..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Kein Kontakt</SelectItem>
-                    {contacts.map((contact) => (
-                      <SelectItem key={contact.id} value={contact.id}>
-                        {contact.name} {contact.firma && `(${contact.firma})`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
               <div className="flex gap-2 justify-end">
                 <Button type="button" variant="outline" onClick={() => setIsCreateTaskOpen(false)}>
                   Abbrechen
                 </Button>
                 <Button type="submit" disabled={createTask.isPending}>
-                  {createTask.isPending ? 'Wird erstellt...' : 'Erstellen'}
+                  {createTask.isPending ? 'Erstelle...' : 'Aufgabe erstellen'}
                 </Button>
               </div>
             </form>
@@ -534,34 +582,20 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Statistics Cards - Now Clickable */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {projectsLoading ? (
-          <>
-            {[...Array(4)].map((_, i) => (
-              <Card key={i}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-8 w-8 rounded-full" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-8 w-16 mb-2" />
-                  <Skeleton className="h-3 w-32" />
-                </CardContent>
-              </Card>
-            ))}
-          </>
-        ) : (
-          stats.map((stat) => (
-            <Card 
-              key={stat.title} 
-              className="cursor-pointer hover:bg-accent/50 transition-colors"
+      {/* Statistics Cards */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <Card
+              key={stat.title}
+              className="cursor-pointer hover:shadow-lg transition-shadow"
               onClick={() => handleStatCardClick(stat.page, stat.filter)}
             >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <div className={`p-2 rounded-full ${stat.bgColor}`}>
-                  <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                  <Icon className={`h-4 w-4 ${stat.color}`} />
                 </div>
               </CardHeader>
               <CardContent>
@@ -569,258 +603,58 @@ export default function Dashboard() {
                 <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
               </CardContent>
             </Card>
-          ))
-        )}
+          );
+        })}
       </div>
 
-      {/* Cost Overview Widget - Clickable */}
+      {/* Cost Overview Widget */}
       {kostenUebersicht && (
-        <Card 
-          className="border-emerald-200 dark:border-emerald-900 cursor-pointer hover:bg-accent/50 transition-colors"
+        <Card
+          className="cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => handleStatCardClick('kostenuebersicht')}
         >
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+            <CardTitle className="flex items-center gap-2">
               <Euro className="h-5 w-5" />
               Kostenübersicht
             </CardTitle>
-            <CardDescription>Gesamtkosten aller Projekte</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1">
+              <div>
                 <p className="text-sm text-muted-foreground">Gesamt</p>
                 <p className="text-2xl font-bold">{formatCurrency(kostenUebersicht.gesamt)}</p>
               </div>
-              <div className="space-y-1">
+              <div>
                 <p className="text-sm text-muted-foreground">Bezahlt</p>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                   {formatCurrency(kostenUebersicht.bezahlt)}
                 </p>
               </div>
-              <div className="space-y-1">
+              <div>
                 <p className="text-sm text-muted-foreground">Offen</p>
                 <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                   {formatCurrency(kostenUebersicht.offen)}
                 </p>
               </div>
             </div>
-            {kostenUebersicht.gesamt > 0 && (
-              <div className="mt-4">
-                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                  <span>Fortschritt</span>
-                  <span>
-                    {Math.round((kostenUebersicht.bezahlt / kostenUebersicht.gesamt) * 100)}%
-                  </span>
-                </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-green-600 dark:bg-green-400 transition-all"
-                    style={{
-                      width: `${(kostenUebersicht.bezahlt / kostenUebersicht.gesamt) * 100}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
       )}
 
-      {/* Main Content Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Active Projects */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Aktuelle Projekte</CardTitle>
-            <CardDescription>Ihre laufenden Bauprojekte</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {projectsLoading ? (
-              <div className="space-y-3">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <Skeleton className="h-10 w-10 rounded-lg" />
-                    <div className="flex-1 space-y-2">
-                      <Skeleton className="h-4 w-3/4" />
-                      <Skeleton className="h-3 w-1/2" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : projects && projects.length > 0 ? (
-              <div className="space-y-3">
-                {projects.slice(0, 5).map((project) => (
-                  <div key={project.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <Building2 className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{project.name}</p>
-                      <p className="text-sm text-muted-foreground truncate">{project.kunde}</p>
-                      {project.verantwortlicherKontakt && (
-                        <p className="text-xs text-muted-foreground truncate">
-                          {getContactName(project.verantwortlicherKontakt)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                Noch keine Projekte vorhanden
-              </p>
-            )}
-          </CardContent>
-        </Card>
+      {/* Unified Upcoming Tasks Widget */}
+      <UpcomingTasksWidget
+        tasks={allTasks}
+        projects={projects || []}
+        onTaskClick={handleTaskClick}
+      />
 
-        {/* Important Deadlines */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Wichtige Termine
-            </CardTitle>
-            <CardDescription>Anstehende Fristen</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {upcomingDeadlines.length > 0 ? (
-              <div className="space-y-3">
-                {upcomingDeadlines.map((task) => (
-                  <div key={task.id} className="flex items-start gap-3 p-3 rounded-lg border bg-card">
-                    <div className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${getDringlichkeitColor(task.dringlichkeit)}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{task.titel}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <p className="text-xs text-muted-foreground">{task.gewerke}</p>
-                        <span className="text-xs text-muted-foreground">•</span>
-                        <p className="text-xs text-muted-foreground">{formatDate(task.faelligkeit)}</p>
-                      </div>
-                      {task.projectId && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Projekt: {getProjectName(task.projectId)}
-                        </p>
-                      )}
-                      {task.verantwortlicherKontakt && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {getContactName(task.verantwortlicherKontakt)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                Keine anstehenden Termine
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* This Week Tasks - Dynamic */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Diese Woche</CardTitle>
-            <CardDescription>Aufgaben für diese Woche</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {thisWeekDueTasks.length > 0 ? (
-              <div className="space-y-3">
-                {thisWeekDueTasks.slice(0, 5).map((task) => (
-                  <div key={task.id} className="flex items-start gap-3 p-3 rounded-lg border bg-card">
-                    <div className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${getDringlichkeitColor(task.dringlichkeit)}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{task.titel}</p>
-                      <p className="text-xs text-muted-foreground">{task.gewerke}</p>
-                      <p className="text-xs text-muted-foreground">Fällig: {formatDate(task.faelligkeit)}</p>
-                      {task.projectId && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Projekt: {getProjectName(task.projectId)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                Keine Aufgaben für diese Woche
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Calendar Widget */}
-      {projects && projects.length > 0 && (
-        <CalendarWidget projects={projects} tasks={allTasks} />
-      )}
-
-      {/* Feedback Required Section */}
-      {feedbackTasks.length > 0 && (
-        <Card className="border-purple-200 dark:border-purple-900">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
-              <AlertCircle className="h-5 w-5" />
-              Benötigt Feedback
-            </CardTitle>
-            <CardDescription>Aufgaben, die auf Ihre Rückmeldung warten</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {feedbackTasks.map((task) => (
-                <div key={task.id} className="flex items-start gap-3 p-4 rounded-lg border bg-purple-50 dark:bg-purple-950/20">
-                  <div className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${getDringlichkeitColor(task.dringlichkeit)}`} />
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <div>
-                      <p className="font-medium text-sm">{task.titel}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{task.beschreibung}</p>
-                      <div className="flex items-center gap-2 flex-wrap mt-2">
-                        <Badge variant="outline" className="text-xs">{task.gewerke}</Badge>
-                        <Badge variant="outline" className="text-xs">{task.bereich}</Badge>
-                        {task.projectId && (
-                          <Badge variant="outline" className="text-xs">
-                            {getProjectName(task.projectId)}
-                          </Badge>
-                        )}
-                        {task.verantwortlicherKontakt && (
-                          <Badge variant="outline" className="text-xs">
-                            {getContactName(task.verantwortlicherKontakt)}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs"
-                        onClick={() => handleQuickStatusChange(task.id, 'Diese Woche')}
-                        disabled={changeTaskStatus.isPending}
-                      >
-                        <ArrowRight className="h-3 w-3 mr-1" />
-                        Diese Woche
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs"
-                        onClick={() => handleQuickStatusChange(task.id, 'Erledigt')}
-                        disabled={changeTaskStatus.isPending}
-                      >
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Erledigt
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Calendar */}
+      <CalendarView
+        projects={projects || []}
+        tasks={allTasks}
+        onTaskClick={handleTaskClick}
+      />
     </div>
   );
 }

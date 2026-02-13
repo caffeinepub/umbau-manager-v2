@@ -17,6 +17,7 @@ import { PDFThumbnail } from '../components/PDFThumbnail';
 import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
 import { DynamicSelect } from '../components/DynamicSelect';
 import { getDocumentBereiche, addDocumentBereich } from '../lib/customCategories';
+import { ExternalBlob } from '../backend';
 
 const STATUS_OPTIONS = ['Entwurf', 'In Prüfung', 'Genehmigt', 'Archiviert'];
 
@@ -105,18 +106,24 @@ export default function Documents() {
       try {
         const documentName = newDocument.name.trim() || item.file.name.replace('.pdf', '');
         
+        // Convert File to Uint8Array
+        const arrayBuffer = await item.file.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        // Create ExternalBlob with progress tracking
+        const blob = ExternalBlob.fromBytes(uint8Array).withUploadProgress((percentage) => {
+          setUploadQueue(prev => prev.map(i => 
+            i.id === item.id ? { ...i, progress: percentage } : i
+          ));
+        });
+        
         await uploadDocument.mutateAsync({
           id: item.id,
           name: documentName,
           bereich: newDocument.bereich,
           typ: 'PDF',
           status: newDocument.status,
-          file: item.file,
-          onProgress: (percentage) => {
-            setUploadQueue(prev => prev.map(i => 
-              i.id === item.id ? { ...i, progress: percentage } : i
-            ));
-          },
+          blob: blob,
         });
 
         setUploadQueue(prev => prev.map(i => 
@@ -454,7 +461,7 @@ export default function Documents() {
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground text-center py-8">
-                        Noch keine Dokumente in diesem Bereich
+                        Keine Dokumente in diesem Bereich
                       </p>
                     )}
                   </CardContent>
@@ -467,16 +474,9 @@ export default function Documents() {
 
       <UnifiedPDFViewer
         open={viewerOpen}
-        onOpenChange={(open) => {
-          setViewerOpen(open);
-          if (!open && viewerPdfUrl) {
-            URL.revokeObjectURL(viewerPdfUrl);
-            setViewerPdfUrl('');
-          }
-        }}
+        onOpenChange={setViewerOpen}
         pdfUrl={viewerPdfUrl}
         title={viewerTitle}
-        disableDownload={false}
       />
 
       <DeleteConfirmDialog
@@ -484,8 +484,9 @@ export default function Documents() {
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDeleteConfirm}
         title="Dokument löschen"
-        description="Möchten Sie dieses Dokument wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
+        description="Sind Sie sicher, dass Sie dieses Dokument löschen möchten?"
         itemName={documentToDelete?.name}
+        isPending={deleteDocument.isPending}
       />
     </div>
   );

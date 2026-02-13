@@ -1,100 +1,73 @@
 {
   "kind": "build_request",
-  "title": "Fix media deletion + PDF thumbnails, enable cost items editing in Roadmap, and make project dates optional",
-  "priority": "normal",
+  "title": "Restore Contacts page functionality: create contact and create link",
+  "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Fix Media deletion by implementing a backend `deleteMedia` API and wiring the frontend mutation to it so users can reliably delete images and PDFs without runtime errors.",
+      "text": "Fix the end-to-end \"Create contact\" flow on the Contacts page so a newly created contact is persisted for the logged-in user and appears immediately in the contacts list after submission.",
       "target": "both",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-1"
         ],
         "quotes": [
-          "Alleredings kann ich einmal hinzugefügte Medien nicht löschen \"Fehler beim Löschen: actor.deleteMedia is not a function\""
+          "baue die Kontakt page erstmal funktional wieder auf mit den besprochenen Punkten\n\nKontakt erstellen soll funktionieren"
         ]
       },
       "acceptanceCriteria": [
-        "Clicking the delete (trash) action on a media tile successfully removes the media item from the backend and the UI list after confirmation.",
-        "No runtime error `actor.deleteMedia is not a function` occurs anywhere in the Media page.",
-        "After deletion, the Media query cache is invalidated/refetched and the deleted item no longer appears in grid or list view.",
-        "Deletion must also remove the stored blob content (no orphaned blob data for the deleted media)."
+        "From frontend/src/pages/Contacts.tsx, submitting the \"New contact\" dialog successfully creates a new contact without throwing in the console.",
+        "The new contact is persisted in the backend (backend/main.mo) under the caller and is returned by the existing contacts list query after page refresh/login.",
+        "After successful creation, the contacts React Query cache is invalidated/refetched (frontend/src/hooks/useQueries.ts) and the new contact appears in the list without manual reload.",
+        "If required fields are missing, the form prevents submission and shows the existing validation feedback (no new UX changes)."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Make PDF previews in the Media grid view render correctly and consistently (show a real first-page thumbnail preview instead of a generic file icon when the PDF is valid and reachable).",
-      "target": "frontend",
+      "text": "Fix the end-to-end \"Create link\" flow on the Contacts page so a newly created helpful link is persisted for the logged-in user and appears immediately in the links list after submission.",
+      "target": "both",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-1"
         ],
         "quotes": [
-          "was leider immer noch nicht funktoniert ist die korrekte PDF preview."
+          "Link erstellen soll funktionieren"
         ]
       },
       "acceptanceCriteria": [
-        "For a valid PDF media item, the Media grid tile shows a rendered thumbnail of the PDF’s first page (not a generic document icon).",
-        "If a PDF thumbnail cannot be generated (corrupt PDF / unreachable URL), the UI falls back to the generic PDF icon and shows a non-blocking error state (no crash).",
-        "The existing 'eye' (viewer) action continues to open the PDF in the existing viewer modal successfully.",
-        "Thumbnail rendering works for multiple PDFs in the grid and respects light/dark theme styling (no unreadable backgrounds)."
+        "From frontend/src/pages/Contacts.tsx, submitting the \"New link\" dialog successfully creates a new link without throwing in the console.",
+        "The new link is persisted in the backend (backend/main.mo) under the caller and is returned by the existing links list query after page refresh/login.",
+        "After successful creation, the links React Query cache is invalidated/refetched (frontend/src/hooks/useQueries.ts) and the new link appears in the list without manual reload.",
+        "If required fields are missing, the form prevents submission and shows the existing validation feedback (no new UX changes)."
       ]
     },
     {
       "id": "REQ-3",
-      "text": "Extend the Roadmap project edit dialog to allow adding/editing/removing cost items directly in the editor, and ensure changes are synced with the Kostenübersicht page.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-5",
-          "msg-7"
-        ],
-        "quotes": [
-          "wenn ich auf bearbeiten klicke keine Kostenpunkte hinzufügen .",
-          "1. \"im Roadmap‑Editor Kostenpositionen direkt hinzufügen können\""
-        ]
-      },
-      "acceptanceCriteria": [
-        "In Roadmap -> Edit Project dialog, there is a cost items section that supports adding, editing, and removing cost items for that project before saving.",
-        "When opening the Edit Project dialog, existing cost items for the project are loaded and displayed for editing (not an empty list).",
-        "Saving the project updates cost items in the backend and the Kostenübersicht page reflects the changes after save (queries invalidated/refetched).",
-        "The Create Project dialog behavior for cost items remains working as before."
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "text": "Make project start and end dates optional (can be left blank during creation and editing), and update Roadmap/calendar rendering to handle projects without dates gracefully.",
+      "text": "Ensure no other app functionality or UI behavior is changed beyond what is required to restore \"Create contact\" and \"Create link\" on the Contacts page.",
       "target": "both",
       "source": {
         "messageIds": [
-          "msg-5",
-          "msg-7"
+          "msg-1"
         ],
         "quotes": [
-          "mich nervt es dass ich bei Projekten zwingend ein Datum eingeben muss. Manchmal weiß ich die Daten eben noch nicht.",
-          "2. optional und später festlegbar"
+          "Alles andere bleibt unverändert"
         ]
       },
       "acceptanceCriteria": [
-        "Users can create a project without providing start and/or end date (no required validation blocking submit).",
-        "Users can edit an existing project and clear previously set dates (set them back to empty/unknown).",
-        "Roadmap list view shows a clear placeholder label for missing dates (e.g., 'No dates set') rather than an invalid/epoch date.",
-        "Calendar views do not crash when projects have missing dates; projects without a complete date range are either excluded from the calendar grid or displayed in a dedicated 'Undated projects' area (choose one behavior and apply consistently).",
-        "Existing stored projects with dates remain intact after the schema change (no data loss across upgrade)."
+        "No changes are made to unrelated pages/components beyond what is strictly necessary to make contact/link creation work again.",
+        "Existing CRUD flows on other pages (e.g., tasks, documents, media, projects, costs) continue to function as before."
       ]
     }
   ],
   "constraints": [
-    "Backend must remain a single Motoko actor in `backend/main.mo` (no additional backend services).",
-    "Only create/update `backend/migration.mo` if required to preserve existing stable state across the project-date schema change.",
-    "Do not modify any files under `frontend/src/components/ui` or the immutable hook entry points listed in SYSTEM_CONTEXT.",
-    "Use English for any new or changed user-facing text introduced by this build request (toasts, labels, placeholders, error messages)."
+    "Do not introduce new features on the Contacts page beyond restoring contact creation and link creation.",
+    "Keep the architecture as a single Motoko actor in backend/main.mo.",
+    "Do not modify any files under frontend/src/components/ui or any paths listed as frontend immutable paths in SYSTEM_CONTEXT."
   ],
   "nonGoals": [
-    "Changing the Media drag-and-drop ordering behavior (it already works).",
-    "Adding new authentication providers (only Internet Identity is supported).",
-    "Introducing real-time updates or collaborative editing."
+    "Adding contact editing/deletion improvements beyond what already exists in the UI.",
+    "Adding new contact-page features such as tags, notes enhancements, activity history, or project linking (unless required strictly to restore create flows).",
+    "Any redesign or refactor of the Contacts page layout/styling unrelated to the two broken create flows."
   ],
   "imageRequirements": {
     "required": [],

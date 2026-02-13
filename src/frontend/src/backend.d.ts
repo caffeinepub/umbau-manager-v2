@@ -14,13 +14,51 @@ export class ExternalBlob {
     static fromBytes(blob: Uint8Array<ArrayBuffer>): ExternalBlob;
     withUploadProgress(onProgress: (percentage: number) => void): ExternalBlob;
 }
-export interface UserProfile {
-    userType: UserType;
-    name: string;
-    role: string;
-    email: string;
+export interface KostenUebersicht {
+    offen: number;
+    gesamt: number;
+    bezahlt: number;
 }
 export type Time = bigint;
+export interface Contact {
+    id: ContactId;
+    firma: string;
+    owner: Principal;
+    name: string;
+    notizen: string;
+    verknuepfteTasks: Array<TaskId>;
+    email: string;
+    verknuepfteDokumente: Array<DocumentId>;
+    telefon: string;
+    rolle: string;
+}
+export interface HelpfulLink {
+    id: LinkId;
+    url: string;
+    titel: string;
+    owner: Principal;
+    logoUrl: string;
+    kategorie: string;
+    beschreibung: string;
+}
+export interface Task {
+    id: TaskId;
+    status: string;
+    titel: string;
+    bereich: Bereich;
+    owner: Principal;
+    verantwortlicherKontakt?: ContactId;
+    projectId?: ProjectId;
+    kategorie: string;
+    faelligkeit: Time;
+    dringlichkeit: bigint;
+    beschreibung: string;
+    gewerke: string;
+}
+export interface MediaPositionUpdate {
+    newPosition: bigint;
+    mediaId: MediaId;
+}
 export interface Document {
     id: DocumentId;
     typ: string;
@@ -30,14 +68,19 @@ export interface Document {
     blob: ExternalBlob;
     name: string;
 }
-export interface MediaPositionUpdate {
-    newPosition: bigint;
-    mediaId: MediaId;
-}
 export type CostItemId = string;
+export type LinkId = string;
 export type Bereich = string;
-export type DocumentId = string;
+export type TaskId = string;
+export interface MediaUpdate {
+    typ?: string;
+    name?: string;
+    tags?: Array<string>;
+    kategorie?: string;
+    position?: bigint;
+}
 export type ProjectId = string;
+export type DocumentId = string;
 export interface CostItem {
     id: CostItemId;
     status: string;
@@ -62,12 +105,6 @@ export interface Project {
     kunde: string;
     startDate?: Time;
 }
-export interface KostenUebersicht {
-    offen: number;
-    gesamt: number;
-    bezahlt: number;
-}
-export type MediaId = string;
 export interface Media {
     id: MediaId;
     typ: string;
@@ -77,6 +114,13 @@ export interface Media {
     tags: Array<string>;
     kategorie: string;
     position: bigint;
+}
+export type MediaId = string;
+export interface UserProfile {
+    userType: UserType;
+    name: string;
+    role: string;
+    email: string;
 }
 export enum UserRole {
     admin = "admin",
@@ -91,26 +135,43 @@ export interface backendInterface {
     addKostenpunkt(projectId: ProjectId, kost: CostItem): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     bulkUpdateMediaPositions(updates: Array<MediaPositionUpdate>): Promise<void>;
+    createContact(id: ContactId, name: string, firma: string, rolle: string, email: string, telefon: string, notizen: string, verknuepfteTasks: Array<TaskId>, verknuepfteDokumente: Array<DocumentId>): Promise<void>;
+    createHelpfulLink(id: LinkId, titel: string, beschreibung: string, url: string, kategorie: string, logoUrl: string): Promise<void>;
     createProjekt(id: ProjectId, name: string, kunde: string | null, color: string, start: Time | null, end: Time | null, kategorie: string, verantwortlicherKontakt: ContactId | null, costItemsArray: Array<CostItem>): Promise<void>;
+    createTask(id: TaskId, titel: string, beschreibung: string, gewerke: string, status: string, dringlichkeit: bigint, bereich: Bereich, faelligkeit: Time, kategorie: string, verantwortlicherKontakt: ContactId | null, projectId: ProjectId | null): Promise<void>;
+    deleteContact(contactId: ContactId): Promise<void>;
+    deleteDocument(documentId: DocumentId): Promise<void>;
+    deleteHelpfulLink(linkId: LinkId): Promise<void>;
     deleteKostenpunkt(projectId: ProjectId, kostenpunktId: CostItemId): Promise<void>;
     deleteProjekt(id: ProjectId): Promise<void>;
+    deleteTask(taskId: TaskId): Promise<void>;
     deleteUserMedia(mediaId: string): Promise<void>;
     filterProjectsByUserType(userType: UserType): Promise<Array<Project>>;
+    getAllContacts(): Promise<Array<Contact>>;
+    getAllHelpfulLinks(): Promise<Array<HelpfulLink>>;
     getAllKostenpunkte(): Promise<Array<CostItem>>;
     getAllProjects(): Promise<Array<Project>>;
+    getAllTasks(): Promise<Array<Task>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
+    getContact(contactId: ContactId): Promise<Contact>;
+    getHelpfulLink(linkId: LinkId): Promise<HelpfulLink>;
     getKostenUebersicht(projektId: ProjectId | null): Promise<KostenUebersicht>;
     getKostenpunkteByProjekt(projectId: ProjectId): Promise<Array<CostItem>>;
     getProjekt(id: ProjectId): Promise<Project>;
+    getTask(taskId: TaskId): Promise<Task>;
     getUserDocuments(): Promise<Array<Document>>;
     getUserMedia(): Promise<Array<Media>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     initializeAccessControl(): Promise<void>;
     isCallerAdmin(): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    updateContact(id: ContactId, name: string, firma: string, rolle: string, email: string, telefon: string, notizen: string, verknuepfteTasks: Array<TaskId>, verknuepfteDokumente: Array<DocumentId>): Promise<void>;
+    updateHelpfulLink(id: LinkId, titel: string, beschreibung: string, url: string, kategorie: string, logoUrl: string): Promise<void>;
     updateKostenpunkt(projectId: ProjectId, kostId: CostItemId, updatedKost: CostItem): Promise<void>;
+    updateMedia(id: string, updates: MediaUpdate): Promise<void>;
     updateProjekt(id: ProjectId, name: string, kunde: string | null, color: string, start: Time | null, end: Time | null, kategorie: string, verantwortlicherKontakt: ContactId | null, costItemsArray: Array<CostItem>): Promise<void>;
+    updateTask(id: TaskId, titel: string, beschreibung: string, gewerke: string, status: string, dringlichkeit: bigint, bereich: Bereich, faelligkeit: Time, kategorie: string, verantwortlicherKontakt: ContactId | null, projectId: ProjectId | null): Promise<void>;
     uploadDocumentWithPDF(id: string, name: string, bereich: Bereich, typ: string, status: string, blob: ExternalBlob): Promise<void>;
     uploadMedia(id: string, name: string, kategorie: string, typ: string, position: bigint, tags: Array<string>, blob: ExternalBlob): Promise<void>;
 }

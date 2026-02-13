@@ -46,6 +46,9 @@ export const MediaPositionUpdate = IDL.Record({
   'mediaId' : MediaId,
 });
 export const ContactId = IDL.Text;
+export const TaskId = IDL.Text;
+export const LinkId = IDL.Text;
+export const Bereich = IDL.Text;
 export const UserType = IDL.Variant({
   'business' : IDL.Null,
   'privat' : IDL.Null,
@@ -61,6 +64,41 @@ export const Project = IDL.Record({
   'kunde' : IDL.Text,
   'startDate' : IDL.Opt(Time),
 });
+export const Contact = IDL.Record({
+  'id' : ContactId,
+  'firma' : IDL.Text,
+  'owner' : IDL.Principal,
+  'name' : IDL.Text,
+  'notizen' : IDL.Text,
+  'verknuepfteTasks' : IDL.Vec(TaskId),
+  'email' : IDL.Text,
+  'verknuepfteDokumente' : IDL.Vec(DocumentId),
+  'telefon' : IDL.Text,
+  'rolle' : IDL.Text,
+});
+export const HelpfulLink = IDL.Record({
+  'id' : LinkId,
+  'url' : IDL.Text,
+  'titel' : IDL.Text,
+  'owner' : IDL.Principal,
+  'logoUrl' : IDL.Text,
+  'kategorie' : IDL.Text,
+  'beschreibung' : IDL.Text,
+});
+export const Task = IDL.Record({
+  'id' : TaskId,
+  'status' : IDL.Text,
+  'titel' : IDL.Text,
+  'bereich' : Bereich,
+  'owner' : IDL.Principal,
+  'verantwortlicherKontakt' : IDL.Opt(ContactId),
+  'projectId' : IDL.Opt(ProjectId),
+  'kategorie' : IDL.Text,
+  'faelligkeit' : Time,
+  'dringlichkeit' : IDL.Nat,
+  'beschreibung' : IDL.Text,
+  'gewerke' : IDL.Text,
+});
 export const UserProfile = IDL.Record({
   'userType' : UserType,
   'name' : IDL.Text,
@@ -72,7 +110,6 @@ export const KostenUebersicht = IDL.Record({
   'gesamt' : IDL.Float64,
   'bezahlt' : IDL.Float64,
 });
-export const Bereich = IDL.Text;
 export const ExternalBlob = IDL.Vec(IDL.Nat8);
 export const Document = IDL.Record({
   'id' : DocumentId,
@@ -92,6 +129,13 @@ export const Media = IDL.Record({
   'tags' : IDL.Vec(IDL.Text),
   'kategorie' : IDL.Text,
   'position' : IDL.Int,
+});
+export const MediaUpdate = IDL.Record({
+  'typ' : IDL.Opt(IDL.Text),
+  'name' : IDL.Opt(IDL.Text),
+  'tags' : IDL.Opt(IDL.Vec(IDL.Text)),
+  'kategorie' : IDL.Opt(IDL.Text),
+  'position' : IDL.Opt(IDL.Int),
 });
 
 export const idlService = IDL.Service({
@@ -124,6 +168,26 @@ export const idlService = IDL.Service({
   'addKostenpunkt' : IDL.Func([ProjectId, CostItem], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'bulkUpdateMediaPositions' : IDL.Func([IDL.Vec(MediaPositionUpdate)], [], []),
+  'createContact' : IDL.Func(
+      [
+        ContactId,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Vec(TaskId),
+        IDL.Vec(DocumentId),
+      ],
+      [],
+      [],
+    ),
+  'createHelpfulLink' : IDL.Func(
+      [LinkId, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [],
+      [],
+    ),
   'createProjekt' : IDL.Func(
       [
         ProjectId,
@@ -139,18 +203,44 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'createTask' : IDL.Func(
+      [
+        TaskId,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Nat,
+        Bereich,
+        Time,
+        IDL.Text,
+        IDL.Opt(ContactId),
+        IDL.Opt(ProjectId),
+      ],
+      [],
+      [],
+    ),
+  'deleteContact' : IDL.Func([ContactId], [], []),
+  'deleteDocument' : IDL.Func([DocumentId], [], []),
+  'deleteHelpfulLink' : IDL.Func([LinkId], [], []),
   'deleteKostenpunkt' : IDL.Func([ProjectId, CostItemId], [], []),
   'deleteProjekt' : IDL.Func([ProjectId], [], []),
+  'deleteTask' : IDL.Func([TaskId], [], []),
   'deleteUserMedia' : IDL.Func([IDL.Text], [], []),
   'filterProjectsByUserType' : IDL.Func(
       [UserType],
       [IDL.Vec(Project)],
       ['query'],
     ),
+  'getAllContacts' : IDL.Func([], [IDL.Vec(Contact)], ['query']),
+  'getAllHelpfulLinks' : IDL.Func([], [IDL.Vec(HelpfulLink)], ['query']),
   'getAllKostenpunkte' : IDL.Func([], [IDL.Vec(CostItem)], ['query']),
   'getAllProjects' : IDL.Func([], [IDL.Vec(Project)], ['query']),
+  'getAllTasks' : IDL.Func([], [IDL.Vec(Task)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getContact' : IDL.Func([ContactId], [Contact], ['query']),
+  'getHelpfulLink' : IDL.Func([LinkId], [HelpfulLink], ['query']),
   'getKostenUebersicht' : IDL.Func(
       [IDL.Opt(ProjectId)],
       [KostenUebersicht],
@@ -162,6 +252,7 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'getProjekt' : IDL.Func([ProjectId], [Project], ['query']),
+  'getTask' : IDL.Func([TaskId], [Task], ['query']),
   'getUserDocuments' : IDL.Func([], [IDL.Vec(Document)], ['query']),
   'getUserMedia' : IDL.Func([], [IDL.Vec(Media)], ['query']),
   'getUserProfile' : IDL.Func(
@@ -172,7 +263,28 @@ export const idlService = IDL.Service({
   'initializeAccessControl' : IDL.Func([], [], []),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'updateContact' : IDL.Func(
+      [
+        ContactId,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Vec(TaskId),
+        IDL.Vec(DocumentId),
+      ],
+      [],
+      [],
+    ),
+  'updateHelpfulLink' : IDL.Func(
+      [LinkId, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [],
+      [],
+    ),
   'updateKostenpunkt' : IDL.Func([ProjectId, CostItemId, CostItem], [], []),
+  'updateMedia' : IDL.Func([IDL.Text, MediaUpdate], [], []),
   'updateProjekt' : IDL.Func(
       [
         ProjectId,
@@ -184,6 +296,23 @@ export const idlService = IDL.Service({
         IDL.Text,
         IDL.Opt(ContactId),
         IDL.Vec(CostItem),
+      ],
+      [],
+      [],
+    ),
+  'updateTask' : IDL.Func(
+      [
+        TaskId,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Nat,
+        Bereich,
+        Time,
+        IDL.Text,
+        IDL.Opt(ContactId),
+        IDL.Opt(ProjectId),
       ],
       [],
       [],
@@ -249,6 +378,9 @@ export const idlFactory = ({ IDL }) => {
     'mediaId' : MediaId,
   });
   const ContactId = IDL.Text;
+  const TaskId = IDL.Text;
+  const LinkId = IDL.Text;
+  const Bereich = IDL.Text;
   const UserType = IDL.Variant({ 'business' : IDL.Null, 'privat' : IDL.Null });
   const Project = IDL.Record({
     'id' : ProjectId,
@@ -261,6 +393,41 @@ export const idlFactory = ({ IDL }) => {
     'kunde' : IDL.Text,
     'startDate' : IDL.Opt(Time),
   });
+  const Contact = IDL.Record({
+    'id' : ContactId,
+    'firma' : IDL.Text,
+    'owner' : IDL.Principal,
+    'name' : IDL.Text,
+    'notizen' : IDL.Text,
+    'verknuepfteTasks' : IDL.Vec(TaskId),
+    'email' : IDL.Text,
+    'verknuepfteDokumente' : IDL.Vec(DocumentId),
+    'telefon' : IDL.Text,
+    'rolle' : IDL.Text,
+  });
+  const HelpfulLink = IDL.Record({
+    'id' : LinkId,
+    'url' : IDL.Text,
+    'titel' : IDL.Text,
+    'owner' : IDL.Principal,
+    'logoUrl' : IDL.Text,
+    'kategorie' : IDL.Text,
+    'beschreibung' : IDL.Text,
+  });
+  const Task = IDL.Record({
+    'id' : TaskId,
+    'status' : IDL.Text,
+    'titel' : IDL.Text,
+    'bereich' : Bereich,
+    'owner' : IDL.Principal,
+    'verantwortlicherKontakt' : IDL.Opt(ContactId),
+    'projectId' : IDL.Opt(ProjectId),
+    'kategorie' : IDL.Text,
+    'faelligkeit' : Time,
+    'dringlichkeit' : IDL.Nat,
+    'beschreibung' : IDL.Text,
+    'gewerke' : IDL.Text,
+  });
   const UserProfile = IDL.Record({
     'userType' : UserType,
     'name' : IDL.Text,
@@ -272,7 +439,6 @@ export const idlFactory = ({ IDL }) => {
     'gesamt' : IDL.Float64,
     'bezahlt' : IDL.Float64,
   });
-  const Bereich = IDL.Text;
   const ExternalBlob = IDL.Vec(IDL.Nat8);
   const Document = IDL.Record({
     'id' : DocumentId,
@@ -292,6 +458,13 @@ export const idlFactory = ({ IDL }) => {
     'tags' : IDL.Vec(IDL.Text),
     'kategorie' : IDL.Text,
     'position' : IDL.Int,
+  });
+  const MediaUpdate = IDL.Record({
+    'typ' : IDL.Opt(IDL.Text),
+    'name' : IDL.Opt(IDL.Text),
+    'tags' : IDL.Opt(IDL.Vec(IDL.Text)),
+    'kategorie' : IDL.Opt(IDL.Text),
+    'position' : IDL.Opt(IDL.Int),
   });
   
   return IDL.Service({
@@ -328,6 +501,26 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'createContact' : IDL.Func(
+        [
+          ContactId,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Vec(TaskId),
+          IDL.Vec(DocumentId),
+        ],
+        [],
+        [],
+      ),
+    'createHelpfulLink' : IDL.Func(
+        [LinkId, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [],
+        [],
+      ),
     'createProjekt' : IDL.Func(
         [
           ProjectId,
@@ -343,18 +536,44 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'createTask' : IDL.Func(
+        [
+          TaskId,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Nat,
+          Bereich,
+          Time,
+          IDL.Text,
+          IDL.Opt(ContactId),
+          IDL.Opt(ProjectId),
+        ],
+        [],
+        [],
+      ),
+    'deleteContact' : IDL.Func([ContactId], [], []),
+    'deleteDocument' : IDL.Func([DocumentId], [], []),
+    'deleteHelpfulLink' : IDL.Func([LinkId], [], []),
     'deleteKostenpunkt' : IDL.Func([ProjectId, CostItemId], [], []),
     'deleteProjekt' : IDL.Func([ProjectId], [], []),
+    'deleteTask' : IDL.Func([TaskId], [], []),
     'deleteUserMedia' : IDL.Func([IDL.Text], [], []),
     'filterProjectsByUserType' : IDL.Func(
         [UserType],
         [IDL.Vec(Project)],
         ['query'],
       ),
+    'getAllContacts' : IDL.Func([], [IDL.Vec(Contact)], ['query']),
+    'getAllHelpfulLinks' : IDL.Func([], [IDL.Vec(HelpfulLink)], ['query']),
     'getAllKostenpunkte' : IDL.Func([], [IDL.Vec(CostItem)], ['query']),
     'getAllProjects' : IDL.Func([], [IDL.Vec(Project)], ['query']),
+    'getAllTasks' : IDL.Func([], [IDL.Vec(Task)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getContact' : IDL.Func([ContactId], [Contact], ['query']),
+    'getHelpfulLink' : IDL.Func([LinkId], [HelpfulLink], ['query']),
     'getKostenUebersicht' : IDL.Func(
         [IDL.Opt(ProjectId)],
         [KostenUebersicht],
@@ -366,6 +585,7 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getProjekt' : IDL.Func([ProjectId], [Project], ['query']),
+    'getTask' : IDL.Func([TaskId], [Task], ['query']),
     'getUserDocuments' : IDL.Func([], [IDL.Vec(Document)], ['query']),
     'getUserMedia' : IDL.Func([], [IDL.Vec(Media)], ['query']),
     'getUserProfile' : IDL.Func(
@@ -376,7 +596,28 @@ export const idlFactory = ({ IDL }) => {
     'initializeAccessControl' : IDL.Func([], [], []),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'updateContact' : IDL.Func(
+        [
+          ContactId,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Vec(TaskId),
+          IDL.Vec(DocumentId),
+        ],
+        [],
+        [],
+      ),
+    'updateHelpfulLink' : IDL.Func(
+        [LinkId, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [],
+        [],
+      ),
     'updateKostenpunkt' : IDL.Func([ProjectId, CostItemId, CostItem], [], []),
+    'updateMedia' : IDL.Func([IDL.Text, MediaUpdate], [], []),
     'updateProjekt' : IDL.Func(
         [
           ProjectId,
@@ -388,6 +629,23 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           IDL.Opt(ContactId),
           IDL.Vec(CostItem),
+        ],
+        [],
+        [],
+      ),
+    'updateTask' : IDL.Func(
+        [
+          TaskId,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Nat,
+          Bereich,
+          Time,
+          IDL.Text,
+          IDL.Opt(ContactId),
+          IDL.Opt(ProjectId),
         ],
         [],
         [],

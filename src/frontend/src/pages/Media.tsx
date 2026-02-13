@@ -21,6 +21,7 @@ import { UnifiedPDFViewer } from '../components/UnifiedPDFViewer';
 import { PDFThumbnail } from '../components/PDFThumbnail';
 import { getMediaKategorien, addMediaKategorie } from '../lib/customCategories';
 import { useQueryClient } from '@tanstack/react-query';
+import { ExternalBlob } from '../backend';
 
 interface MediaItemProps {
   item: Medium;
@@ -304,7 +305,8 @@ export default function Media() {
         newPosition: BigInt(index)
       }));
 
-      await bulkUpdatePositions.mutateAsync({ updates });
+      // Pass array directly, not wrapped in object
+      await bulkUpdatePositions.mutateAsync(updates);
     } catch (error) {
       console.error('Error updating positions:', error);
       // Revert optimistic update on error
@@ -351,6 +353,16 @@ export default function Media() {
         const mediaId = `media_${Date.now()}_${i}`;
         const isImage = file.type.startsWith('image/');
         
+        // Convert File to Uint8Array
+        const arrayBuffer = await file.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        // Create ExternalBlob with progress tracking
+        const blob = ExternalBlob.fromBytes(uint8Array).withUploadProgress((percentage) => {
+          const totalProgress = ((i / selectedFiles.length) * 100) + (percentage / selectedFiles.length);
+          setUploadProgress(Math.round(totalProgress));
+        });
+        
         await uploadMedia.mutateAsync({
           id: mediaId,
           name: file.name,
@@ -358,11 +370,7 @@ export default function Media() {
           typ: isImage ? 'image' : 'pdf',
           tags: tags,
           position: BigInt(currentMediaCount + i),
-          file: file,
-          onProgress: (percentage) => {
-            const totalProgress = ((i / selectedFiles.length) * 100) + (percentage / selectedFiles.length);
-            setUploadProgress(Math.round(totalProgress));
-          },
+          blob: blob,
         });
       }
 
@@ -397,11 +405,13 @@ export default function Media() {
     try {
       await updateMedia.mutateAsync({
         id: mediaToEdit.id,
-        name: editMedia.name,
-        kategorie: editMedia.kategorie,
-        typ: mediaToEdit.typ,
-        tags: tags,
-        position: mediaToEdit.position,
+        updates: {
+          name: editMedia.name,
+          kategorie: editMedia.kategorie,
+          typ: mediaToEdit.typ,
+          tags: tags,
+          position: mediaToEdit.position,
+        }
       });
 
       setMediaToEdit(null);
@@ -483,275 +493,166 @@ export default function Media() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Medien</h1>
           <p className="text-muted-foreground mt-2">
-            Bilder, PDFs und Visualisierungen Ihrer Projekte
+            Verwalten Sie Ihre Bilder und PDF-Dokumente
           </p>
         </div>
-        <div className="flex gap-2">
-          {!actor && !actorFetching && (
-            <Button variant="outline" onClick={handleRetryConnection} size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Neu laden
+        <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+          <DialogTrigger asChild>
+            <Button disabled={isUploadDisabled}>
+              {isActorInitializing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Initialisiere...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Medien hochladen
+                </>
+              )}
             </Button>
-          )}
-          <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-            <DialogTrigger asChild>
-              <Button disabled={isUploadDisabled}>
-                {isActorInitializing ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Initialisierung...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Medien hochladen
-                  </>
-                )}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Medien hochladen</DialogTitle>
-                <DialogDescription>
-                  Laden Sie Bilder oder PDF-Dateien hoch
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleUpload} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="files">Dateien auswählen *</Label>
-                  <Input
-                    id="files"
-                    type="file"
-                    accept="image/*,.pdf"
-                    multiple
-                    onChange={handleFileSelect}
-                    className="cursor-pointer"
-                    required
-                    disabled={isUploadDisabled}
-                  />
-                  {selectedFiles.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {selectedFiles.map((file, idx) => (
-                        <Badge key={idx} variant="secondary">
-                          {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <DynamicSelect
-                  id="kategorie"
-                  label="Kategorie"
-                  value={newMedia.kategorie}
-                  onValueChange={(value) => setNewMedia({ ...newMedia, kategorie: value })}
-                  options={kategorien}
-                  onAddOption={handleAddKategorie}
-                  placeholder="Kategorie wählen..."
-                  required
-                  disabled={isUploadDisabled}
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Medien hochladen</DialogTitle>
+              <DialogDescription>
+                Laden Sie Bilder oder PDF-Dokumente hoch
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleUpload} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="files">Dateien *</Label>
+                <Input
+                  id="files"
+                  type="file"
+                  accept="image/*,.pdf"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="cursor-pointer"
                 />
-                <div className="space-y-2">
-                  <Label htmlFor="tags">Tags (kommagetrennt)</Label>
-                  <Input
-                    id="tags"
-                    value={newMedia.tags}
-                    onChange={(e) => setNewMedia({ ...newMedia, tags: e.target.value })}
-                    placeholder="z.B. Fassade, Vorher, 2024"
-                    disabled={isUploadDisabled}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="note">Notiz (optional)</Label>
-                  <Textarea
-                    id="note"
-                    value={newMedia.note}
-                    onChange={(e) => setNewMedia({ ...newMedia, note: e.target.value })}
-                    placeholder="Kurze Beschreibung..."
-                    rows={2}
-                    disabled={isUploadDisabled}
-                  />
-                </div>
-                {uploadProgress > 0 && uploadProgress < 100 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Upload-Fortschritt</span>
-                      <span className="font-medium">{uploadProgress}%</span>
-                    </div>
-                    <Progress value={uploadProgress} />
-                  </div>
+                {selectedFiles.length > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    {selectedFiles.length} Datei(en) ausgewählt
+                  </p>
                 )}
-                <div className="flex gap-2 justify-end">
-                  <Button type="button" variant="outline" onClick={() => setIsUploadOpen(false)} disabled={uploadMedia.isPending}>
-                    Abbrechen
-                  </Button>
-                  <Button type="submit" disabled={selectedFiles.length === 0 || isUploadDisabled}>
-                    {uploadMedia.isPending ? (
-                      <>
-                        <Upload className="h-4 w-4 mr-2 animate-pulse" />
-                        Wird hochgeladen...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4 mr-2" />
-                        Hochladen ({selectedFiles.length})
-                      </>
-                    )}
-                  </Button>
+              </div>
+              <DynamicSelect
+                id="kategorie"
+                label="Kategorie"
+                value={newMedia.kategorie}
+                onValueChange={(value) => setNewMedia({ ...newMedia, kategorie: value })}
+                options={kategorien}
+                onAddOption={handleAddKategorie}
+                placeholder="Kategorie wählen..."
+                required
+              />
+              <div className="space-y-2">
+                <Label htmlFor="tags">Tags (kommagetrennt)</Label>
+                <Input
+                  id="tags"
+                  value={newMedia.tags}
+                  onChange={(e) => setNewMedia({ ...newMedia, tags: e.target.value })}
+                  placeholder="z.B. Außenansicht, Vorher, Nachher"
+                />
+              </div>
+              {uploadProgress > 0 && (
+                <div className="space-y-2">
+                  <Label>Upload-Fortschritt</Label>
+                  <Progress value={uploadProgress} />
+                  <p className="text-sm text-muted-foreground text-center">{uploadProgress}%</p>
                 </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
+              )}
+              <div className="flex gap-2 justify-end">
+                <Button type="button" variant="outline" onClick={() => setIsUploadOpen(false)}>
+                  Abbrechen
+                </Button>
+                <Button type="submit" disabled={uploadMedia.isPending || selectedFiles.length === 0}>
+                  {uploadMedia.isPending ? 'Lädt hoch...' : 'Hochladen'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {showRefreshIndicator && (
-        <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Loader2 className="h-5 w-5 animate-spin text-blue-600 dark:text-blue-400" />
-              <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                Aktualisiere Medienliste...
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Medien durchsuchen..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Tabs value={typeFilter} onValueChange={(value) => setTypeFilter(value as any)} className="w-full sm:w-auto">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="all">Alle</TabsTrigger>
+                <TabsTrigger value="images">Bilder</TabsTrigger>
+                <TabsTrigger value="pdfs">PDFs</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availableCategories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setView(view === 'grid' ? 'list' : 'grid')}
+              >
+                {view === 'grid' ? <List className="h-4 w-4" /> : <Grid3x3 className="h-4 w-4" />}
+              </Button>
+              {activeFiltersCount > 0 && (
+                <Button variant="outline" onClick={handleResetFilters}>
+                  Filter zurücksetzen ({activeFiltersCount})
+                </Button>
+              )}
+              {showRefreshIndicator && (
+                <Button variant="ghost" size="icon" disabled>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Media Grid/List */}
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="aspect-square" />
+          ))}
+        </div>
+      ) : filteredMedia.length === 0 ? (
+        <Card>
+          <CardContent className="py-12">
+            <div className="text-center text-muted-foreground">
+              <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Keine Medien gefunden</p>
+              <p className="text-sm mt-2">
+                {activeFiltersCount > 0
+                  ? 'Versuchen Sie andere Suchkriterien'
+                  : 'Laden Sie Ihre ersten Medien hoch'}
               </p>
             </div>
           </CardContent>
         </Card>
-      )}
-
-      <Card>
-        <CardContent className="p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold">Filter & Suche</h3>
-            {activeFiltersCount > 0 && (
-              <Button variant="ghost" size="sm" onClick={handleResetFilters}>
-                <X className="h-4 w-4 mr-2" />
-                Alle zurücksetzen ({activeFiltersCount})
-              </Button>
-            )}
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="search">Name oder Tags suchen</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search"
-                  placeholder="Suche..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="category-filter">Kategorie</Label>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger id="category-filter">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableCategories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="type-filter">Dateityp</Label>
-              <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
-                <SelectTrigger id="type-filter">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Alle</SelectItem>
-                  <SelectItem value="images">Nur Bilder</SelectItem>
-                  <SelectItem value="pdfs">Nur PDFs</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {activeFiltersCount > 0 && (
-            <div className="flex flex-wrap gap-2 pt-2 border-t">
-              <span className="text-sm text-muted-foreground">Aktive Filter:</span>
-              {typeFilter !== 'all' && (
-                <Badge variant="secondary" className="gap-1">
-                  Typ: {typeFilter === 'images' ? 'Bilder' : 'PDFs'}
-                  <X 
-                    className="h-3 w-3 cursor-pointer hover:text-destructive" 
-                    onClick={() => setTypeFilter('all')}
-                  />
-                </Badge>
-              )}
-              {categoryFilter !== 'Alle' && (
-                <Badge variant="secondary" className="gap-1">
-                  Kategorie: {categoryFilter}
-                  <X 
-                    className="h-3 w-3 cursor-pointer hover:text-destructive" 
-                    onClick={() => setCategoryFilter('Alle')}
-                  />
-                </Badge>
-              )}
-              {searchQuery.trim() && (
-                <Badge variant="secondary" className="gap-1">
-                  Suche: "{searchQuery}"
-                  <X 
-                    className="h-3 w-3 cursor-pointer hover:text-destructive" 
-                    onClick={() => setSearchQuery('')}
-                  />
-                </Badge>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="flex items-center justify-between">
-        <Tabs value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)} className="w-auto">
-          <TabsList>
-            <TabsTrigger value="all">
-              Alle
-              {media && <Badge variant="secondary" className="ml-2">{filteredMedia.length}</Badge>}
-            </TabsTrigger>
-            <TabsTrigger value="images">
-              <ImageIcon className="h-4 w-4 mr-2" />
-              Bilder
-            </TabsTrigger>
-            <TabsTrigger value="pdfs">
-              <FileText className="h-4 w-4 mr-2" />
-              PDFs
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-
-        <div className="flex gap-2">
-          <Button
-            variant={view === 'grid' ? 'default' : 'outline'}
-            size="icon"
-            onClick={() => setView('grid')}
-          >
-            <Grid3x3 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={view === 'list' ? 'default' : 'outline'}
-            size="icon"
-            onClick={() => setView('list')}
-          >
-            <List className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className={view === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4' : 'space-y-2'}>
-          {[...Array(8)].map((_, i) => (
-            <Skeleton key={i} className={view === 'grid' ? 'h-48' : 'h-20'} />
-          ))}
-        </div>
-      ) : filteredMedia && filteredMedia.length > 0 ? (
-        <div className={view === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4' : 'space-y-2'}>
+      ) : view === 'grid' ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredMedia.map((item) => (
             <MediaItem
               key={item.id}
@@ -768,28 +669,36 @@ export default function Media() {
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="py-12">
-            <p className="text-center text-muted-foreground">
-              {activeFiltersCount > 0 
-                ? 'Keine Medien entsprechen den aktuellen Filtern.'
-                : 'Noch keine Medien vorhanden. Laden Sie Ihre ersten Dateien hoch.'}
-            </p>
-          </CardContent>
-        </Card>
+        <div className="space-y-2">
+          {filteredMedia.map((item) => (
+            <MediaItem
+              key={item.id}
+              item={item}
+              view={view}
+              onView={handleViewMedia}
+              onEdit={handleEditClick}
+              onDelete={handleDeleteClick}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              isDragging={draggedItem?.id === item.id}
+            />
+          ))}
+        </div>
       )}
 
+      {/* Edit Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Medium bearbeiten</DialogTitle>
             <DialogDescription>
-              Bearbeiten Sie die Mediendetails
+              Bearbeiten Sie die Metadaten des Mediums
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleUpdateMedia} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-name">Name</Label>
+              <Label htmlFor="edit-name">Name *</Label>
               <Input
                 id="edit-name"
                 value={editMedia.name}
@@ -814,17 +723,7 @@ export default function Media() {
                 id="edit-tags"
                 value={editMedia.tags}
                 onChange={(e) => setEditMedia({ ...editMedia, tags: e.target.value })}
-                placeholder="z.B. Fassade, Vorher, 2024"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-note">Notiz (optional)</Label>
-              <Textarea
-                id="edit-note"
-                value={editMedia.note}
-                onChange={(e) => setEditMedia({ ...editMedia, note: e.target.value })}
-                placeholder="Kurze Beschreibung..."
-                rows={2}
+                placeholder="z.B. Außenansicht, Vorher, Nachher"
               />
             </div>
             <div className="flex gap-2 justify-end">
@@ -832,51 +731,14 @@ export default function Media() {
                 Abbrechen
               </Button>
               <Button type="submit" disabled={updateMedia.isPending}>
-                {updateMedia.isPending ? 'Wird aktualisiert...' : 'Aktualisieren'}
+                {updateMedia.isPending ? 'Speichert...' : 'Speichern'}
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
-      <UnifiedPDFViewer
-        open={viewerOpen}
-        onOpenChange={(open) => {
-          setViewerOpen(open);
-          if (!open && viewerPdfUrl) {
-            URL.revokeObjectURL(viewerPdfUrl);
-            setViewerPdfUrl('');
-          }
-        }}
-        pdfUrl={viewerPdfUrl}
-        title={viewerTitle}
-        disableDownload={true}
-      />
-
-      <Dialog open={imageViewerOpen} onOpenChange={setImageViewerOpen}>
-        <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0">
-          <DialogHeader className="px-6 py-4 border-b shrink-0">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="truncate pr-4">{imageViewerTitle}</DialogTitle>
-              <Button size="sm" variant="ghost" onClick={() => setImageViewerOpen(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </DialogHeader>
-          <div className="flex-1 overflow-hidden bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-6">
-            <img 
-              src={imageViewerUrl} 
-              alt={imageViewerTitle}
-              className="max-w-full max-h-full object-contain"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                toast.error('Bild konnte nicht geladen werden');
-              }}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-
+      {/* Delete Confirmation */}
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
@@ -884,7 +746,37 @@ export default function Media() {
         title="Medium löschen"
         description="Möchten Sie dieses Medium wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
         itemName={mediaToDelete?.name}
+        isPending={deleteMedia.isPending}
       />
+
+      {/* PDF Viewer */}
+      <UnifiedPDFViewer
+        open={viewerOpen}
+        onOpenChange={(open) => {
+          setViewerOpen(open);
+          if (!open) {
+            URL.revokeObjectURL(viewerPdfUrl);
+          }
+        }}
+        pdfUrl={viewerPdfUrl}
+        title={viewerTitle}
+      />
+
+      {/* Image Viewer */}
+      <Dialog open={imageViewerOpen} onOpenChange={setImageViewerOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>{imageViewerTitle}</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center overflow-auto">
+            <img
+              src={imageViewerUrl}
+              alt={imageViewerTitle}
+              className="max-w-full max-h-[70vh] object-contain"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

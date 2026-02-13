@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
-import { useGetAllProjects, useUpdateProject, useDeleteProject, useGetAllContacts, useCreateProject, useCreateCustomCategory, useDeleteCustomCategory, useGetTasksByProjectId, useGetCallerUserProfile } from '../hooks/useQueries';
+import { useState } from 'react';
+import { useGetAllProjects, useUpdateProject, useDeleteProject, useGetAllContacts, useCreateProject, useGetCallerUserProfile, useGetAllCostItems } from '../hooks/useQueries';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import { useActor } from '../hooks/useActor';
-import type { TaskV2 } from '../hooks/useQueries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,8 +17,10 @@ import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
 import { CalendarView } from '../components/CalendarView';
 import { BaseDialog } from '../components/BaseDialog';
 import { CostItemsSection } from '../components/CostItemsSection';
+import { ProjectTimelineInput, TimelineMode } from '../components/ProjectTimelineInput';
 import { useFocusOnMount } from '../lib/focusManager';
 import { getKategorien, addKategorie } from '../lib/customCategories';
+import { formatDateRangeSmart, monthToTimestamps, validateMonthRange, timestampToMonth, isFullMonthRange } from '../lib/dateUtils';
 import { toast } from 'sonner';
 import { UserType } from '../backend';
 import type { Project, CostItem } from '../backend';
@@ -33,8 +34,6 @@ export default function Roadmap() {
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
   const deleteProject = useDeleteProject();
-  const createCustomCategory = useCreateCustomCategory();
-  const deleteCustomCategory = useDeleteCustomCategory();
   const [kategorienOptions, setKategorienOptions] = useState<string[]>(getKategorien());
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
@@ -43,20 +42,19 @@ export default function Roadmap() {
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
-  const [editingCategory, setEditingCategory] = useState<string | null>(null);
-  const [editCategoryValue, setEditCategoryValue] = useState('');
-  const [editCategoryColor, setEditCategoryColor] = useState('#3b82f6');
-  const [deleteCategoryDialogOpen, setDeleteCategoryDialogOpen] = useState(false);
-  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [costItems, setCostItems] = useState<CostItem[]>([]);
   const [editCostItems, setEditCostItems] = useState<CostItem[]>([]);
+  const [timelineMode, setTimelineMode] = useState<TimelineMode>('exact');
+  const [editTimelineMode, setEditTimelineMode] = useState<TimelineMode>('exact');
   const [newProject, setNewProject] = useState({
     name: '',
     kunde: '',
     color: '#3b82f6',
-    startDate: '',
-    endDate: '',
+    exactStartDate: '',
+    exactEndDate: '',
+    monthStartDate: '',
+    monthEndDate: '',
     kategorie: 'none',
     verantwortlicherKontakt: 'none',
   });
@@ -76,7 +74,7 @@ export default function Roadmap() {
     : projects;
 
   const formatDate = (timestamp?: bigint) => {
-    if (!timestamp) return 'No dates set';
+    if (!timestamp) return null;
     const date = new Date(Number(timestamp) / 1000000);
     return date.toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
   };
@@ -124,9 +122,47 @@ export default function Roadmap() {
       return;
     }
 
+    let startTimestamp: bigint | null = null;
+    let endTimestamp: bigint | null = null;
+
+    // Handle timeline based on mode
+    if (timelineMode === 'exact') {
+      // Validate date range only if both dates are provided
+      if (newProject.exactStartDate && newProject.exactEndDate) {
+        const start = new Date(newProject.exactStartDate);
+        const end = new Date(newProject.exactEndDate);
+        if (end < start) {
+          toast.error('End date cannot be before start date');
+          return;
+        }
+        startTimestamp = BigInt(start.getTime() * 1000000);
+        endTimestamp = BigInt(end.getTime() * 1000000);
+      } else if (newProject.exactStartDate) {
+        startTimestamp = BigInt(new Date(newProject.exactStartDate).getTime() * 1000000);
+      } else if (newProject.exactEndDate) {
+        endTimestamp = BigInt(new Date(newProject.exactEndDate).getTime() * 1000000);
+      }
+    } else {
+      // Month range mode
+      if (newProject.monthStartDate && newProject.monthEndDate) {
+        if (!validateMonthRange(newProject.monthStartDate, newProject.monthEndDate)) {
+          toast.error('End month cannot be before start month');
+          return;
+        }
+        const startRange = monthToTimestamps(newProject.monthStartDate);
+        const endRange = monthToTimestamps(newProject.monthEndDate);
+        startTimestamp = startRange.start;
+        endTimestamp = endRange.end;
+      } else if (newProject.monthStartDate) {
+        const startRange = monthToTimestamps(newProject.monthStartDate);
+        startTimestamp = startRange.start;
+      } else if (newProject.monthEndDate) {
+        const endRange = monthToTimestamps(newProject.monthEndDate);
+        endTimestamp = endRange.end;
+      }
+    }
+
     const projectId = `project_${Date.now()}`;
-    const startTimestamp = newProject.startDate ? BigInt(new Date(newProject.startDate).getTime() * 1000000) : null;
-    const endTimestamp = newProject.endDate ? BigInt(new Date(newProject.endDate).getTime() * 1000000) : null;
 
     // Ensure all cost items have the correct owner before submission
     const validatedCostItems = costItems.map(item => ({
@@ -151,27 +187,38 @@ export default function Roadmap() {
       name: '',
       kunde: '',
       color: '#3b82f6',
-      startDate: '',
-      endDate: '',
+      exactStartDate: '',
+      exactEndDate: '',
+      monthStartDate: '',
+      monthEndDate: '',
       kategorie: 'none',
       verantwortlicherKontakt: 'none',
     });
     setCostItems([]);
+    setTimelineMode('exact');
     setIsCreateProjectOpen(false);
   };
 
   const handleEditClick = async (project: Project, e: React.MouseEvent) => {
     e.stopPropagation();
     setProjectToEdit(project);
+    
+    // Detect if this is a month-range project
+    const isMonthRange = project.startDate && project.endDate && isFullMonthRange(project.startDate, project.endDate);
+    
     setNewProject({
       name: project.name,
       kunde: project.kunde,
       color: project.color || '#3b82f6',
-      startDate: formatDateForInput(project.startDate),
-      endDate: formatDateForInput(project.endDate),
+      exactStartDate: formatDateForInput(project.startDate),
+      exactEndDate: formatDateForInput(project.endDate),
+      monthStartDate: project.startDate ? timestampToMonth(project.startDate) : '',
+      monthEndDate: project.endDate ? timestampToMonth(project.endDate) : '',
       kategorie: project.kategorie,
       verantwortlicherKontakt: project.verantwortlicherKontakt || 'none',
     });
+    
+    setEditTimelineMode(isMonthRange ? 'month' : 'exact');
     
     // Load existing cost items for this project using the actor from component level
     try {
@@ -207,8 +254,45 @@ export default function Roadmap() {
       return;
     }
 
-    const startTimestamp = newProject.startDate ? BigInt(new Date(newProject.startDate).getTime() * 1000000) : null;
-    const endTimestamp = newProject.endDate ? BigInt(new Date(newProject.endDate).getTime() * 1000000) : null;
+    let startTimestamp: bigint | null = null;
+    let endTimestamp: bigint | null = null;
+
+    // Handle timeline based on mode
+    if (editTimelineMode === 'exact') {
+      // Validate date range only if both dates are provided
+      if (newProject.exactStartDate && newProject.exactEndDate) {
+        const start = new Date(newProject.exactStartDate);
+        const end = new Date(newProject.exactEndDate);
+        if (end < start) {
+          toast.error('End date cannot be before start date');
+          return;
+        }
+        startTimestamp = BigInt(start.getTime() * 1000000);
+        endTimestamp = BigInt(end.getTime() * 1000000);
+      } else if (newProject.exactStartDate) {
+        startTimestamp = BigInt(new Date(newProject.exactStartDate).getTime() * 1000000);
+      } else if (newProject.exactEndDate) {
+        endTimestamp = BigInt(new Date(newProject.exactEndDate).getTime() * 1000000);
+      }
+    } else {
+      // Month range mode
+      if (newProject.monthStartDate && newProject.monthEndDate) {
+        if (!validateMonthRange(newProject.monthStartDate, newProject.monthEndDate)) {
+          toast.error('End month cannot be before start month');
+          return;
+        }
+        const startRange = monthToTimestamps(newProject.monthStartDate);
+        const endRange = monthToTimestamps(newProject.monthEndDate);
+        startTimestamp = startRange.start;
+        endTimestamp = endRange.end;
+      } else if (newProject.monthStartDate) {
+        const startRange = monthToTimestamps(newProject.monthStartDate);
+        startTimestamp = startRange.start;
+      } else if (newProject.monthEndDate) {
+        const endRange = monthToTimestamps(newProject.monthEndDate);
+        endTimestamp = endRange.end;
+      }
+    }
 
     // Ensure all cost items have the correct owner before submission
     const validatedCostItems = editCostItems.map(item => ({
@@ -233,13 +317,16 @@ export default function Roadmap() {
       name: '',
       kunde: '',
       color: '#3b82f6',
-      startDate: '',
-      endDate: '',
+      exactStartDate: '',
+      exactEndDate: '',
+      monthStartDate: '',
+      monthEndDate: '',
       kategorie: 'none',
       verantwortlicherKontakt: 'none',
     });
     setEditCostItems([]);
     setProjectToEdit(null);
+    setEditTimelineMode('exact');
     setIsEditOpen(false);
   };
 
@@ -260,96 +347,9 @@ export default function Roadmap() {
     }
   };
 
-  const handleAddKategorie = async (newKat: string) => {
-    try {
-      await createCustomCategory.mutateAsync({ categoryType: 'kategorien', categoryName: newKat });
-      addKategorie(newKat);
-      setKategorienOptions(getKategorien());
-    } catch (error) {
-      console.error('Error adding category:', error);
-    }
-  };
-
-  const handleEditCategory = (category: string) => {
-    setEditingCategory(category);
-    setEditCategoryValue(category);
-    const categoryProject = projects?.find(p => p.kategorie === category);
-    setEditCategoryColor(categoryProject?.color || getCategoryColor(kategorienOptions.indexOf(category)));
-  };
-
-  const handleSaveCategory = async () => {
-    if (!editingCategory || !editCategoryValue.trim()) return;
-    
-    const oldCategory = editingCategory;
-    const newCategory = editCategoryValue.trim();
-    
-    if (oldCategory === newCategory) {
-      if (projects) {
-        const projectsToUpdate = projects.filter(p => p.kategorie === oldCategory);
-        for (const project of projectsToUpdate) {
-          try {
-            await updateProject.mutateAsync({
-              id: project.id,
-              name: project.name,
-              kunde: isPrivateUser ? null : project.kunde,
-              color: editCategoryColor,
-              start: project.startDate || null,
-              end: project.endDate || null,
-              kategorie: newCategory,
-              verantwortlicherKontakt: project.verantwortlicherKontakt || null,
-            });
-          } catch (error) {
-            console.error('Error updating project:', error);
-          }
-        }
-      }
-    } else {
-      try {
-        await createCustomCategory.mutateAsync({ categoryType: 'kategorien', categoryName: newCategory });
-        addKategorie(newCategory);
-        setKategorienOptions(getKategorien());
-        
-        if (projects) {
-          const projectsToUpdate = projects.filter(p => p.kategorie === oldCategory);
-          for (const project of projectsToUpdate) {
-            await updateProject.mutateAsync({
-              id: project.id,
-              name: project.name,
-              kunde: isPrivateUser ? null : project.kunde,
-              color: editCategoryColor,
-              start: project.startDate || null,
-              end: project.endDate || null,
-              kategorie: newCategory,
-              verantwortlicherKontakt: project.verantwortlicherKontakt || null,
-            });
-          }
-        }
-        
-        await deleteCustomCategory.mutateAsync({ categoryType: 'kategorien', categoryName: oldCategory });
-      } catch (error) {
-        console.error('Error updating category:', error);
-      }
-    }
-    
-    setEditingCategory(null);
-  };
-
-  const handleDeleteCategory = (category: string) => {
-    setCategoryToDelete(category);
-    setDeleteCategoryDialogOpen(true);
-  };
-
-  const handleDeleteCategoryConfirm = async () => {
-    if (!categoryToDelete) return;
-    
-    try {
-      await deleteCustomCategory.mutateAsync({ categoryType: 'kategorien', categoryName: categoryToDelete });
-      const updatedKategorien = kategorienOptions.filter(k => k !== categoryToDelete);
-      setKategorienOptions(updatedKategorien);
-      setCategoryToDelete(null);
-    } catch (error) {
-      console.error('Error deleting category:', error);
-    }
+  const handleAddKategorie = (newKat: string) => {
+    addKategorie(newKat);
+    setKategorienOptions(getKategorien());
   };
 
   const getCategoryColor = (index: number) => {
@@ -382,426 +382,387 @@ export default function Roadmap() {
             Timeline overview of your project phases
           </p>
         </div>
-        <Button onClick={() => setIsCreateProjectOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Project
-        </Button>
+        <div className="flex gap-2">
+          <BaseDialog
+            open={isCreateProjectOpen}
+            onOpenChange={(open) => {
+              setIsCreateProjectOpen(open);
+              if (!open) {
+                setCostItems([]);
+                setTimelineMode('exact');
+              }
+            }}
+            title="Neues Projekt erstellen"
+            description="Erstellen Sie ein neues Bauprojekt mit Kostenpunkten"
+            trigger={
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Projekt erstellen
+              </Button>
+            }
+          >
+            <form onSubmit={handleCreateProject} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+              <div className="space-y-2">
+                <Label htmlFor="name">Projektname *</Label>
+                <Input
+                  ref={projectNameInputRef}
+                  id="name"
+                  value={newProject.name}
+                  onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                  placeholder="z.B. Dachsanierung Hauptgebäude"
+                  required
+                />
+              </div>
+              {!isPrivateUser && (
+                <div className="space-y-2">
+                  <Label htmlFor="kunde">Kunde *</Label>
+                  <Input
+                    id="kunde"
+                    value={newProject.kunde}
+                    onChange={(e) => setNewProject({ ...newProject, kunde: e.target.value })}
+                    placeholder="Kundenname"
+                    required
+                  />
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="color">Projektfarbe</Label>
+                <div className="flex items-center gap-3">
+                  <input
+                    id="color"
+                    type="color"
+                    value={newProject.color}
+                    onChange={(e) => setNewProject({ ...newProject, color: e.target.value })}
+                    className="h-10 w-20 rounded border border-input cursor-pointer"
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    Wählen Sie eine Farbe für dieses Projekt
+                  </span>
+                </div>
+              </div>
+
+              <ProjectTimelineInput
+                mode={timelineMode}
+                onModeChange={setTimelineMode}
+                exactStartDate={newProject.exactStartDate}
+                exactEndDate={newProject.exactEndDate}
+                monthStartDate={newProject.monthStartDate}
+                monthEndDate={newProject.monthEndDate}
+                onExactStartChange={(value) => setNewProject({ ...newProject, exactStartDate: value })}
+                onExactEndChange={(value) => setNewProject({ ...newProject, exactEndDate: value })}
+                onMonthStartChange={(value) => setNewProject({ ...newProject, monthStartDate: value })}
+                onMonthEndChange={(value) => setNewProject({ ...newProject, monthEndDate: value })}
+              />
+
+              <DynamicSelect
+                id="kategorie"
+                label="Kategorie"
+                value={newProject.kategorie}
+                onValueChange={(value) => setNewProject({ ...newProject, kategorie: value })}
+                options={kategorienOptions}
+                onAddOption={handleAddKategorie}
+                placeholder="Kategorie wählen..."
+                required
+              />
+              <div className="space-y-2">
+                <Label htmlFor="verantwortlicherKontakt">Verantwortlicher Kontakt</Label>
+                <Select value={newProject.verantwortlicherKontakt} onValueChange={(value) => setNewProject({ ...newProject, verantwortlicherKontakt: value })}>
+                  <SelectTrigger id="verantwortlicherKontakt">
+                    <SelectValue placeholder="Kontakt wählen..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Kein Kontakt</SelectItem>
+                    {contacts.map((contact) => (
+                      <SelectItem key={contact.id} value={contact.id}>
+                        {contact.name} {contact.firma && `(${contact.firma})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Cost Items Section */}
+              <CostItemsSection
+                costItems={costItems}
+                onChange={setCostItems}
+                projectId={`project_${Date.now()}`}
+                userPrincipal={userPrincipal}
+              />
+
+              <div className="flex gap-2 justify-end pt-4 border-t">
+                <Button type="button" variant="outline" onClick={() => setIsCreateProjectOpen(false)}>
+                  Abbrechen
+                </Button>
+                <Button type="submit" disabled={createProject.isPending}>
+                  {createProject.isPending ? 'Erstelle...' : 'Projekt erstellen'}
+                </Button>
+              </div>
+            </form>
+          </BaseDialog>
+        </div>
       </div>
 
-      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'calendar')}>
+      {/* View Mode Tabs */}
+      <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'list' | 'calendar')}>
         <TabsList>
           <TabsTrigger value="list">
             <List className="h-4 w-4 mr-2" />
-            List View
+            Liste
           </TabsTrigger>
           <TabsTrigger value="calendar">
             <CalendarIcon className="h-4 w-4 mr-2" />
-            Calendar View
+            Kalender
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">
-          {kategorienOptions.map((kategorie, index) => {
-            const categoryProjects = getCategoryProjects(kategorie);
-            if (categoryProjects.length === 0) return null;
+          {/* Category Filter */}
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant={selectedCategory === null ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedCategory(null)}
+            >
+              Alle
+            </Button>
+            {kategorienOptions.map((category) => (
+              <Button
+                key={category}
+                variant={selectedCategory === category ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedCategory(category)}
+              >
+                {category}
+              </Button>
+            ))}
+          </div>
 
-            return (
-              <Collapsible key={kategorie} defaultOpen>
-                <Card>
-                  <CollapsibleTrigger className="w-full">
-                    <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <ChevronRight className="h-5 w-5 transition-transform [[data-state=open]>&]:rotate-90" />
-                          <div
-                            className="w-4 h-4 rounded-full"
-                            style={{ backgroundColor: getCategoryColor(index) }}
-                          />
-                          {editingCategory === kategorie ? (
-                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                              <Input
-                                value={editCategoryValue}
-                                onChange={(e) => setEditCategoryValue(e.target.value)}
-                                className="h-8 w-48"
-                              />
-                              <input
-                                type="color"
-                                value={editCategoryColor}
-                                onChange={(e) => setEditCategoryColor(e.target.value)}
-                                className="h-8 w-12 cursor-pointer"
-                              />
-                              <Button size="sm" onClick={handleSaveCategory}>
-                                Save
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => setEditingCategory(null)}>
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <>
-                              <CardTitle>{kategorie}</CardTitle>
-                              <Badge variant="secondary">{categoryProjects.length}</Badge>
-                            </>
-                          )}
-                        </div>
-                        {!editingCategory && (
-                          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleEditCategory(kategorie)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDeleteCategory(kategorie)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+          {/* Projects List */}
+          {filteredProjects && filteredProjects.length > 0 ? (
+            <div className="space-y-4">
+              {kategorienOptions.map((category) => {
+                const categoryProjects = getCategoryProjects(category);
+                if (categoryProjects.length === 0) return null;
+
+                return (
+                  <Card key={category}>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <div
+                          className="w-4 h-4 rounded"
+                          style={{ backgroundColor: categoryProjects[0]?.color || getCategoryColor(kategorienOptions.indexOf(category)) }}
+                        />
+                        {category}
+                        <Badge variant="secondary" className="ml-auto">
+                          {categoryProjects.length}
+                        </Badge>
+                      </CardTitle>
                     </CardHeader>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <CardContent className="space-y-3">
-                      {categoryProjects.map((project) => {
-                        const contactName = getContactName(project.verantwortlicherKontakt);
-                        const isExpanded = expandedProjects.has(project.id);
-
-                        return (
-                          <Card key={project.id} className="overflow-hidden">
-                            <div
-                              className="p-4 cursor-pointer hover:bg-accent/50 transition-colors"
-                              onClick={() => toggleProjectExpansion(project.id)}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3 flex-1">
-                                  <div
-                                    className="w-1 h-12 rounded-full"
-                                    style={{ backgroundColor: project.color || getCategoryColor(index) }}
-                                  />
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <h3 className="font-semibold">{project.name}</h3>
-                                      {!isPrivateUser && (
-                                        <Badge variant="outline">{project.kunde}</Badge>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                                      <span>
-                                        {formatDate(project.startDate)} - {formatDate(project.endDate)}
-                                      </span>
-                                      {contactName && (
-                                        <>
-                                          <span>•</span>
-                                          <span>{contactName}</span>
-                                        </>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => handleEditClick(project, e)}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => handleDeleteClick(project, e)}
-                                    className="text-destructive hover:text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                  <ChevronDown
-                                    className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                                  />
-                                </div>
+                    <CardContent className="space-y-2">
+                      {categoryProjects.map((project) => (
+                        <Collapsible key={project.id}>
+                          <div className="flex items-center gap-2 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
+                            <CollapsibleTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-0 h-auto"
+                                onClick={() => toggleProjectExpansion(project.id)}
+                              >
+                                {expandedProjects.has(project.id) ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </CollapsibleTrigger>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium truncate">{project.name}</p>
+                                {project.kunde && (
+                                  <Badge variant="outline" className="shrink-0">
+                                    {project.kunde}
+                                  </Badge>
+                                )}
                               </div>
+                              <p className="text-sm text-muted-foreground">
+                                {formatDateRangeSmart(project.startDate, project.endDate)}
+                              </p>
                             </div>
-                          </Card>
-                        );
-                      })}
+                            <div className="flex gap-1 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => handleEditClick(project, e)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => handleDeleteClick(project, e)}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <CollapsibleContent className="px-3 py-2">
+                            <div className="space-y-2 text-sm">
+                              {project.verantwortlicherKontakt && (
+                                <p className="text-muted-foreground">
+                                  Kontakt: {getContactName(project.verantwortlicherKontakt) || 'Unbekannt'}
+                                </p>
+                              )}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      ))}
                     </CardContent>
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
-            );
-          })}
-
-          {(!projects || projects.length === 0) && (
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
             <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">No projects yet. Create your first project to get started.</p>
+              <CardContent className="py-12">
+                <div className="text-center text-muted-foreground">
+                  <CalendarIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Keine Projekte gefunden</p>
+                  <p className="text-sm mt-2">Erstellen Sie Ihr erstes Projekt</p>
+                </div>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
         <TabsContent value="calendar">
-          <CalendarView
-            projects={projects || []}
-            getCategoryColor={getCategoryColor}
-            kategorien={kategorienOptions}
-          />
+          <CalendarView projects={projects || []} />
         </TabsContent>
       </Tabs>
 
-      {/* Create Project Dialog */}
-      <BaseDialog
-        open={isCreateProjectOpen}
-        onOpenChange={setIsCreateProjectOpen}
-        title="Create New Project"
-        description="Add a new project to your roadmap"
-      >
-        <form onSubmit={handleCreateProject} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="project-name">Project Name *</Label>
-            <Input
-              id="project-name"
-              ref={projectNameInputRef}
-              value={newProject.name}
-              onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-              placeholder="e.g., Kitchen Renovation"
-            />
-          </div>
-
-          {!isPrivateUser && (
-            <div className="space-y-2">
-              <Label htmlFor="project-kunde">Customer *</Label>
-              <Input
-                id="project-kunde"
-                value={newProject.kunde}
-                onChange={(e) => setNewProject({ ...newProject, kunde: e.target.value })}
-                placeholder="Customer name"
-              />
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="project-start">Start Date</Label>
-              <Input
-                id="project-start"
-                type="date"
-                value={newProject.startDate}
-                onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="project-end">End Date</Label>
-              <Input
-                id="project-end"
-                type="date"
-                value={newProject.endDate}
-                onChange={(e) => setNewProject({ ...newProject, endDate: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="project-kategorie">Category *</Label>
-            <DynamicSelect
-              value={newProject.kategorie}
-              onValueChange={(value) => setNewProject({ ...newProject, kategorie: value })}
-              options={kategorienOptions}
-              onAddOption={handleAddKategorie}
-              placeholder="Select category"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="project-color">Project Color</Label>
-            <input
-              id="project-color"
-              type="color"
-              value={newProject.color}
-              onChange={(e) => setNewProject({ ...newProject, color: e.target.value })}
-              className="h-10 w-full cursor-pointer rounded-md border"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="project-contact">Responsible Contact</Label>
-            <Select
-              value={newProject.verantwortlicherKontakt}
-              onValueChange={(value) => setNewProject({ ...newProject, verantwortlicherKontakt: value })}
-            >
-              <SelectTrigger id="project-contact">
-                <SelectValue placeholder="Select contact" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No contact</SelectItem>
-                {contacts.map((contact) => (
-                  <SelectItem key={contact.id} value={contact.id}>
-                    {contact.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {userPrincipal && (
-            <CostItemsSection
-              costItems={costItems}
-              onChange={setCostItems}
-              projectId="new"
-              userPrincipal={userPrincipal}
-            />
-          )}
-
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => setIsCreateProjectOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={createProject.isPending}>
-              {createProject.isPending ? 'Creating...' : 'Create Project'}
-            </Button>
-          </div>
-        </form>
-      </BaseDialog>
-
-      {/* Edit Project Dialog */}
+      {/* Edit Dialog */}
       <BaseDialog
         open={isEditOpen}
-        onOpenChange={setIsEditOpen}
-        title="Edit Project"
-        description="Update project details"
+        onOpenChange={(open) => {
+          setIsEditOpen(open);
+          if (!open) {
+            setProjectToEdit(null);
+            setEditCostItems([]);
+            setEditTimelineMode('exact');
+          }
+        }}
+        title="Projekt bearbeiten"
+        description="Bearbeiten Sie die Projektdetails"
       >
-        <form onSubmit={handleUpdateProject} className="space-y-4">
+        <form onSubmit={handleUpdateProject} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
           <div className="space-y-2">
-            <Label htmlFor="edit-project-name">Project Name *</Label>
+            <Label htmlFor="edit-name">Projektname *</Label>
             <Input
-              id="edit-project-name"
               ref={editNameInputRef}
+              id="edit-name"
               value={newProject.name}
               onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-              placeholder="e.g., Kitchen Renovation"
+              placeholder="z.B. Dachsanierung Hauptgebäude"
+              required
             />
           </div>
-
           {!isPrivateUser && (
             <div className="space-y-2">
-              <Label htmlFor="edit-project-kunde">Customer *</Label>
+              <Label htmlFor="edit-kunde">Kunde *</Label>
               <Input
-                id="edit-project-kunde"
+                id="edit-kunde"
                 value={newProject.kunde}
                 onChange={(e) => setNewProject({ ...newProject, kunde: e.target.value })}
-                placeholder="Customer name"
+                placeholder="Kundenname"
+                required
               />
             </div>
           )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-project-start">Start Date</Label>
-              <Input
-                id="edit-project-start"
-                type="date"
-                value={newProject.startDate}
-                onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })}
+          <div className="space-y-2">
+            <Label htmlFor="edit-color">Projektfarbe</Label>
+            <div className="flex items-center gap-3">
+              <input
+                id="edit-color"
+                type="color"
+                value={newProject.color}
+                onChange={(e) => setNewProject({ ...newProject, color: e.target.value })}
+                className="h-10 w-20 rounded border border-input cursor-pointer"
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-project-end">End Date</Label>
-              <Input
-                id="edit-project-end"
-                type="date"
-                value={newProject.endDate}
-                onChange={(e) => setNewProject({ ...newProject, endDate: e.target.value })}
-              />
+              <span className="text-sm text-muted-foreground">
+                Wählen Sie eine Farbe für dieses Projekt
+              </span>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="edit-project-kategorie">Category *</Label>
-            <DynamicSelect
-              value={newProject.kategorie}
-              onValueChange={(value) => setNewProject({ ...newProject, kategorie: value })}
-              options={kategorienOptions}
-              onAddOption={handleAddKategorie}
-              placeholder="Select category"
-            />
-          </div>
+          <ProjectTimelineInput
+            mode={editTimelineMode}
+            onModeChange={setEditTimelineMode}
+            exactStartDate={newProject.exactStartDate}
+            exactEndDate={newProject.exactEndDate}
+            monthStartDate={newProject.monthStartDate}
+            monthEndDate={newProject.monthEndDate}
+            onExactStartChange={(value) => setNewProject({ ...newProject, exactStartDate: value })}
+            onExactEndChange={(value) => setNewProject({ ...newProject, exactEndDate: value })}
+            onMonthStartChange={(value) => setNewProject({ ...newProject, monthStartDate: value })}
+            onMonthEndChange={(value) => setNewProject({ ...newProject, monthEndDate: value })}
+          />
 
+          <DynamicSelect
+            id="edit-kategorie"
+            label="Kategorie"
+            value={newProject.kategorie}
+            onValueChange={(value) => setNewProject({ ...newProject, kategorie: value })}
+            options={kategorienOptions}
+            onAddOption={handleAddKategorie}
+            placeholder="Kategorie wählen..."
+            required
+          />
           <div className="space-y-2">
-            <Label htmlFor="edit-project-color">Project Color</Label>
-            <input
-              id="edit-project-color"
-              type="color"
-              value={newProject.color}
-              onChange={(e) => setNewProject({ ...newProject, color: e.target.value })}
-              className="h-10 w-full cursor-pointer rounded-md border"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="edit-project-contact">Responsible Contact</Label>
-            <Select
-              value={newProject.verantwortlicherKontakt}
-              onValueChange={(value) => setNewProject({ ...newProject, verantwortlicherKontakt: value })}
-            >
-              <SelectTrigger id="edit-project-contact">
-                <SelectValue placeholder="Select contact" />
+            <Label htmlFor="edit-verantwortlicherKontakt">Verantwortlicher Kontakt</Label>
+            <Select value={newProject.verantwortlicherKontakt} onValueChange={(value) => setNewProject({ ...newProject, verantwortlicherKontakt: value })}>
+              <SelectTrigger id="edit-verantwortlicherKontakt">
+                <SelectValue placeholder="Kontakt wählen..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">No contact</SelectItem>
+                <SelectItem value="none">Kein Kontakt</SelectItem>
                 {contacts.map((contact) => (
                   <SelectItem key={contact.id} value={contact.id}>
-                    {contact.name}
+                    {contact.name} {contact.firma && `(${contact.firma})`}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {userPrincipal && projectToEdit && (
-            <CostItemsSection
-              costItems={editCostItems}
-              onChange={setEditCostItems}
-              projectId={projectToEdit.id}
-              userPrincipal={userPrincipal}
-            />
-          )}
+          {/* Cost Items Section */}
+          <CostItemsSection
+            costItems={editCostItems}
+            onChange={setEditCostItems}
+            projectId={projectToEdit?.id || ''}
+            userPrincipal={userPrincipal}
+          />
 
-          <div className="flex justify-end gap-2 pt-4">
+          <div className="flex gap-2 justify-end pt-4 border-t">
             <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
-              Cancel
+              Abbrechen
             </Button>
             <Button type="submit" disabled={updateProject.isPending}>
-              {updateProject.isPending ? 'Updating...' : 'Update Project'}
+              {updateProject.isPending ? 'Speichert...' : 'Speichern'}
             </Button>
           </div>
         </form>
       </BaseDialog>
 
-      {/* Delete Project Confirmation */}
+      {/* Delete Confirmation */}
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDeleteConfirm}
-        title="Delete Project"
-        description="Are you sure you want to delete this project? This action cannot be undone."
+        title="Projekt löschen"
+        description="Möchten Sie dieses Projekt wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
         itemName={projectToDelete?.name}
         isPending={deleteProject.isPending}
-      />
-
-      {/* Delete Category Confirmation */}
-      <DeleteConfirmDialog
-        open={deleteCategoryDialogOpen}
-        onOpenChange={setDeleteCategoryDialogOpen}
-        onConfirm={handleDeleteCategoryConfirm}
-        title="Delete Category"
-        description="Are you sure you want to delete this category? All projects in this category will remain but will need to be reassigned."
-        itemName={categoryToDelete || undefined}
-        isPending={deleteCustomCategory.isPending}
       />
     </div>
   );

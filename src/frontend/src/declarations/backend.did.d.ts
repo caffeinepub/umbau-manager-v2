@@ -11,6 +11,18 @@ import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
 export type Bereich = string;
+export interface Contact {
+  'id' : ContactId,
+  'firma' : string,
+  'owner' : Principal,
+  'name' : string,
+  'notizen' : string,
+  'verknuepfteTasks' : Array<TaskId>,
+  'email' : string,
+  'verknuepfteDokumente' : Array<DocumentId>,
+  'telefon' : string,
+  'rolle' : string,
+}
 export type ContactId = string;
 export interface CostItem {
   'id' : CostItemId,
@@ -36,11 +48,21 @@ export interface Document {
 }
 export type DocumentId = string;
 export type ExternalBlob = Uint8Array;
+export interface HelpfulLink {
+  'id' : LinkId,
+  'url' : string,
+  'titel' : string,
+  'owner' : Principal,
+  'logoUrl' : string,
+  'kategorie' : string,
+  'beschreibung' : string,
+}
 export interface KostenUebersicht {
   'offen' : number,
   'gesamt' : number,
   'bezahlt' : number,
 }
+export type LinkId = string;
 export interface Media {
   'id' : MediaId,
   'typ' : string,
@@ -56,6 +78,13 @@ export interface MediaPositionUpdate {
   'newPosition' : bigint,
   'mediaId' : MediaId,
 }
+export interface MediaUpdate {
+  'typ' : [] | [string],
+  'name' : [] | [string],
+  'tags' : [] | [Array<string>],
+  'kategorie' : [] | [string],
+  'position' : [] | [bigint],
+}
 export interface Project {
   'id' : ProjectId,
   'endDate' : [] | [Time],
@@ -68,6 +97,21 @@ export interface Project {
   'startDate' : [] | [Time],
 }
 export type ProjectId = string;
+export interface Task {
+  'id' : TaskId,
+  'status' : string,
+  'titel' : string,
+  'bereich' : Bereich,
+  'owner' : Principal,
+  'verantwortlicherKontakt' : [] | [ContactId],
+  'projectId' : [] | [ProjectId],
+  'kategorie' : string,
+  'faelligkeit' : Time,
+  'dringlichkeit' : bigint,
+  'beschreibung' : string,
+  'gewerke' : string,
+}
+export type TaskId = string;
 export type Time = bigint;
 export interface UserProfile {
   'userType' : UserType,
@@ -113,6 +157,24 @@ export interface _SERVICE {
     [Array<MediaPositionUpdate>],
     undefined
   >,
+  'createContact' : ActorMethod<
+    [
+      ContactId,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      Array<TaskId>,
+      Array<DocumentId>,
+    ],
+    undefined
+  >,
+  'createHelpfulLink' : ActorMethod<
+    [LinkId, string, string, string, string, string],
+    undefined
+  >,
   'createProjekt' : ActorMethod<
     [
       ProjectId,
@@ -127,27 +189,72 @@ export interface _SERVICE {
     ],
     undefined
   >,
+  'createTask' : ActorMethod<
+    [
+      TaskId,
+      string,
+      string,
+      string,
+      string,
+      bigint,
+      Bereich,
+      Time,
+      string,
+      [] | [ContactId],
+      [] | [ProjectId],
+    ],
+    undefined
+  >,
+  'deleteContact' : ActorMethod<[ContactId], undefined>,
+  'deleteDocument' : ActorMethod<[DocumentId], undefined>,
+  'deleteHelpfulLink' : ActorMethod<[LinkId], undefined>,
   'deleteKostenpunkt' : ActorMethod<[ProjectId, CostItemId], undefined>,
   'deleteProjekt' : ActorMethod<[ProjectId], undefined>,
+  'deleteTask' : ActorMethod<[TaskId], undefined>,
   'deleteUserMedia' : ActorMethod<[string], undefined>,
   'filterProjectsByUserType' : ActorMethod<[UserType], Array<Project>>,
+  'getAllContacts' : ActorMethod<[], Array<Contact>>,
+  'getAllHelpfulLinks' : ActorMethod<[], Array<HelpfulLink>>,
   'getAllKostenpunkte' : ActorMethod<[], Array<CostItem>>,
   'getAllProjects' : ActorMethod<[], Array<Project>>,
+  'getAllTasks' : ActorMethod<[], Array<Task>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getContact' : ActorMethod<[ContactId], Contact>,
+  'getHelpfulLink' : ActorMethod<[LinkId], HelpfulLink>,
   'getKostenUebersicht' : ActorMethod<[[] | [ProjectId]], KostenUebersicht>,
   'getKostenpunkteByProjekt' : ActorMethod<[ProjectId], Array<CostItem>>,
   'getProjekt' : ActorMethod<[ProjectId], Project>,
+  'getTask' : ActorMethod<[TaskId], Task>,
   'getUserDocuments' : ActorMethod<[], Array<Document>>,
   'getUserMedia' : ActorMethod<[], Array<Media>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'initializeAccessControl' : ActorMethod<[], undefined>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'updateContact' : ActorMethod<
+    [
+      ContactId,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      Array<TaskId>,
+      Array<DocumentId>,
+    ],
+    undefined
+  >,
+  'updateHelpfulLink' : ActorMethod<
+    [LinkId, string, string, string, string, string],
+    undefined
+  >,
   'updateKostenpunkt' : ActorMethod<
     [ProjectId, CostItemId, CostItem],
     undefined
   >,
+  'updateMedia' : ActorMethod<[string, MediaUpdate], undefined>,
   'updateProjekt' : ActorMethod<
     [
       ProjectId,
@@ -159,6 +266,22 @@ export interface _SERVICE {
       string,
       [] | [ContactId],
       Array<CostItem>,
+    ],
+    undefined
+  >,
+  'updateTask' : ActorMethod<
+    [
+      TaskId,
+      string,
+      string,
+      string,
+      string,
+      bigint,
+      Bereich,
+      Time,
+      string,
+      [] | [ContactId],
+      [] | [ProjectId],
     ],
     undefined
   >,

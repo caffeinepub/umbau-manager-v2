@@ -1,415 +1,56 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 16,
-  "summary": "Umbau-Manager V2 is a German-language renovation/construction project management web app built for the Internet Computer (ICP). It uses Internet Identity for authentication and a Motoko backend canister to store per-user data for projects (with timelines and categories), tasks (Kanban workflow), documents (PDF uploads), media (images/PDFs with ordering and tags), contacts and helpful links, and project cost items with aggregated cost summaries. The frontend is a React SPA using TanStack React Query for data fetching/caching, PDF.js (via CDN) for previewing and thumbnailing PDFs, and a responsive layout with a collapsible sidebar, theme toggle, and reusable dialog/focus management utilities.",
+  "projectStateVersion": 3,
+  "summary": "New project",
   "architectural_notes": [
-    "Frontend is a single-page React application with internal page routing controlled by state (no external router) and cross-page navigation via a global CustomEvent('navigate').",
-    "TanStack React Query is used as the primary data layer (useQuery/useMutation) with explicit query keys, invalidation on mutations, and some refetch-on-mount behavior for documents/media to ensure immediate UI refresh after uploads.",
-    "ICP agent/actor lifecycle is encapsulated in a dedicated hook (useActor) that creates an authenticated actor when an Internet Identity is present, otherwise uses an anonymous actor. Actor creation calls backend.initializeAccessControl() to register roles.",
-    "Authentication uses @dfinity/auth-client (Internet Identity) with a React context provider, storing the delegation identity and supporting long TTL (30 days).",
-    "Backend is a Motoko canister that stores multi-tenant data in Maps keyed by Principal (projects/tasks/documents/media/contacts/links/cost items), enforcing ownership checks and role-based access control via an AccessControl module.",
-    "Blob/media/document storage uses a storage mixin (backend/blob-storage/Mixin.mo) and Prim storage APIs; includes gateway principal authorization refresh and cycles refill via a cashier canister principal from an environment variable.",
-    "PDF rendering is implemented with PDF.js loaded from a CDN; a global worker is initialized at the top of App.tsx to avoid race conditions. PDF preview uses a UnifiedPDFViewer (modal) and PDFThumbnail with sessionStorage-based caching.",
-    "Reusable UI patterns include BaseDialog (prevents accidental outside-click close, standard styling/scrolling), a centralized focusManager hook (useFocusOnMount / useFocusWithRestore), DeleteConfirmDialog, and ErrorBoundary for crash recovery.",
-    "Custom category values are managed client-side in localStorage (gewerke/bereiche/kategorien/media/document areas) and partially mirrored through backend mutations (createCustomCategory/deleteCustomCategory) for some category types.",
-    "PDF-Preview-Strategie für Medien: Option B gewählt -> Thumbnails server-/backendseitig einmalig erzeugen und persistent speichern (statisch 1. Seite), Viewer beim Klick bleibt separat/unchanged."
+    "Scope constraint: Only restore 'Kontakt erstellen' and 'Link erstellen'; leave all other functionality unchanged."
   ],
   "known_issues": [
-    "Type safety gaps: multiple frontend queries/mutations call backend methods through `(actor as any)` (e.g., tasks, contacts, links, media update/bulk position updates, custom category operations). If backend signatures change or methods are missing, failures occur at runtime rather than compile time.",
-    "Backend/main.mo (as provided) includes projects, documents, media, cost items, profiles, and access control, but does not show task/contact/link/custom-category/bulk media position APIs that the frontend calls; this suggests either missing files or potential API mismatch risk.",
-    "ProfileSetupModal uses `autoFocus` on an input even though the project introduces a focus manager pattern and an ESLint rule to avoid autoFocus; this can reintroduce focus instability in nested dialogs.",
-    "PDF.js loading is duplicated: App.tsx injects the script globally, while UnifiedPDFViewer also attempts to load PDF.js if missing. This can cause redundant script insertion and makes load order more complex.",
-    "In-memory PDF caches (`pdfCache`, `pageRenderCache`) in UnifiedPDFViewer are unbounded and may grow over time (memory pressure in long sessions).",
-    "Task status changes fetch all tasks, find one, then update it (useChangeTaskStatus). This is inefficient and can be race-prone if concurrent updates occur.",
-    "Media grid image error handler replaces markup via `innerHTML` with inline SVG; while currently a static string, this pattern is generally risky if ever made dynamic.",
-    "AccessControl.getUserRole traps for non-anonymous principals that have not been initialized. The app mitigates this by calling initializeAccessControl during actor creation, but failures during initialization could lead to unexpected traps.",
-    "Recurring backend/actor API mismatch causes runtime failures like `actor.bulkUpdateMediaPositions is not a function` and breaks Media drag-and-drop persistence.",
-    "PDF preview thumbnails in Media grid still fall back to icons (no first-page preview), despite the requirement to implement persistent backend-generated thumbnails (Option B)."
+    "Kontakte erstellen funktioniert aktuell nicht.",
+    "Links erstellen funktioniert aktuell nicht."
   ],
   "isFixRequest": true,
   "existing_features": [
     {
-      "id": "IF-1",
-      "title": "Internet Identity authentication",
-      "synonyms": [
-        "II login",
-        "ICP auth"
-      ],
-      "description": "Provides login/logout via Internet Identity using @dfinity/auth-client with a React context provider that loads stored delegations on mount and supports a long-lived delegation (up to ~30 days).",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-2",
-      "title": "Backend actor initialization and access-control bootstrap",
-      "synonyms": [
-        "useActor",
-        "actor lifecycle"
-      ],
-      "description": "Creates an ICP canister actor with or without identity, and calls backend.initializeAccessControl() to register/assign roles; invalidates and refetches dependent React Query caches when the actor/identity changes.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-3",
-      "title": "Role-based access control (admin/user/guest)",
-      "synonyms": [
-        "AccessControl module",
-        "RBAC"
-      ],
-      "description": "Motoko AccessControl tracks per-principal roles; first initializer becomes admin, subsequent principals become users; backend guards major APIs with permission checks and ownership validation.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-4",
-      "title": "User profile management with first-run setup modal",
-      "synonyms": [
-        "ProfileSetupModal",
-        "UserProfile"
-      ],
-      "description": "Fetches the caller’s profile and forces a profile setup modal for first-time users (name, optional email, user type privat/business). Saves profile to backend and uses it to adjust UI/behavior (e.g., customer field visibility).",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-5",
-      "title": "Responsive app layout with navigation, theme toggle, and user menu",
-      "synonyms": [
-        "AppLayout",
-        "sidebar navigation"
-      ],
-      "description": "Implements a responsive layout with collapsible desktop sidebar, mobile off-canvas menu, dark/light theme toggle, and user avatar menu with logout.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-6",
-      "title": "Project CRUD with timeline fields",
-      "synonyms": [
-        "Roadmap projects",
-        "Projektverwaltung"
-      ],
-      "description": "Create, list, edit, and delete projects with name, customer (or auto-filled for private users), color, start/end dates, category, and responsible contact. Backend stores projects per user and enforces ownership rules.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-7",
-      "title": "Project categorization and category management",
-      "synonyms": [
-        "Kategorien",
-        "custom categories"
-      ],
-      "description": "Projects can be filtered by category; categories can be added via DynamicSelect (localStorage) and also created/deleted in backend via custom category mutations; supports renaming categories in UI with propagation to existing projects and updating category color.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-8",
-      "title": "Roadmap views (list + calendar)",
-      "synonyms": [
-        "CalendarView",
-        "timeline overview"
-      ],
-      "description": "Roadmap page supports a list view grouped by category and a calendar view (month/week) showing projects spanning days; projects are color-coded and can be expanded to show related tasks.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-9",
-      "title": "Task management (Kanban board)",
-      "synonyms": [
-        "Tasks",
-        "Aufgaben Kanban"
-      ],
-      "description": "Displays tasks in four status columns (Aufgaben, Diese Woche, Benötigt Feedback, Erledigt) with due-date sorting, urgency labeling, project/contact associations, and CRUD operations (create/edit/delete).",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-10",
-      "title": "Task filtering and quick status transitions",
-      "synonyms": [
-        "task filters",
-        "status buttons"
-      ],
-      "description": "Tasks can be filtered by project, trade (Gewerke), and area (Bereich). Tasks can be moved between columns via status-change actions; Dashboard provides quick actions for ‘Benötigt Feedback’ tasks.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-11",
-      "title": "Dashboard overview with interactive navigation",
-      "synonyms": [
-        "Dashboard stats",
-        "navigate event"
-      ],
-      "description": "Dashboard shows key stats (projects, open tasks, completed tasks, feedback-needed) as clickable cards that dispatch navigation events to switch pages; includes upcoming deadlines and “this week” based on due dates.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-12",
-      "title": "Calendar widgets for projects and tasks",
-      "synonyms": [
-        "CalendarWidget",
-        "event calendar"
-      ],
-      "description": "Dashboard calendar widget shows project start/end and task due events; clicking events dispatches navigation events to related pages.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-13",
-      "title": "Document management with multi-file PDF upload",
-      "synonyms": [
-        "Documents page",
-        "PDF uploads"
-      ],
-      "description": "Allows uploading one or multiple PDFs with per-file progress tracking and sequential uploads. Documents are organized into expandable folders by Bereich, with status/metadata display and delete confirmation.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-14",
-      "title": "Media gallery (images and PDFs) with upload, search, and filters",
-      "synonyms": [
-        "Media page",
-        "gallery"
-      ],
-      "description": "Supports uploading images and PDFs with progress, category assignment, tags, and list/grid view. Provides filtering by file type, category, and free-text search across name and tags, plus inline viewing.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-15",
-      "title": "Drag-and-drop media reordering",
-      "synonyms": [
-        "media ordering",
-        "bulk position update"
-      ],
-      "description": "Media items can be reordered via drag-and-drop; the UI computes a new ordering and calls a backend bulk position update to persist positions, with subsequent query invalidation.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-16",
-      "title": "Media metadata editing and deletion",
-      "synonyms": [
-        "update media",
-        "edit tags"
-      ],
-      "description": "Allows editing media name/category/tags while preserving the original blob, and deleting media items with confirmation.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-17",
-      "title": "Unified PDF viewer modal with caching and fullscreen controls",
-      "synonyms": [
-        "UnifiedPDFViewer",
-        "PDF preview"
-      ],
-      "description": "Displays PDFs in a dialog with page navigation, optional download, keyboard shortcuts, fullscreen toggle, and zoom controls (zoom enabled only in fullscreen). Uses ArrayBuffer-based loading and caches PDF data and rendered pages for faster reuse.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-18",
-      "title": "PDF thumbnail generation with persistent caching",
-      "synonyms": [
-        "PDFThumbnail",
-        "preview thumbnails"
-      ],
-      "description": "Generates first-page thumbnails using PDF.js by fetching PDFs as ArrayBuffer with Accept: application/pdf; caches thumbnails as DataURLs in sessionStorage keyed by a URL hash to speed up folder/media views.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-19",
-      "title": "Contacts CRUD and search/filtering",
-      "synonyms": [
-        "Kontakte"
-      ],
-      "description": "Manages contacts (name, company, role, email, phone, notes) with create/edit/delete flows, and UI filtering by search term and role.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-20",
-      "title": "Helpful links CRUD with categorization",
-      "synonyms": [
-        "Hilfreiche Links"
-      ],
-      "description": "Stores and manages helpful links with title, URL, category, description, and optional logo URL; includes searching/filtering and external link opening.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-21",
-      "title": "Cost item management tied to projects",
-      "synonyms": [
-        "Kostenpunkte",
-        "project costs"
-      ],
-      "description": "Projects can be created with initial cost items; backend supports adding/updating/deleting cost items per project, retrieving all cost items, and summarizing paid vs open totals.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-22",
-      "title": "Kostenübersicht page (cost overview) with grouping, filtering, sorting, and inline editing",
-      "synonyms": [
-        "Cost overview",
-        "Kostenübersicht"
-      ],
-      "description": "Displays all cost items grouped by project with per-project and global totals. Supports filtering by status, sorting by amount/date/description, inline editing of key fields, adding new cost items per project, and linking cost items to documents/media that can be opened in the PDF viewer.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-23",
-      "title": "Blob storage mixin with authorization, cycles refill, and GC support",
-      "synonyms": [
-        "Caffeine storage",
-        "blob lifecycle"
-      ],
-      "description": "Backend includes a storage mixin for managing ExternalBlob lifecycle, gateway principal authorization updates, dead blob enumeration and pruning confirmation, and a cashier top-up mechanism using cycles.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-24",
-      "title": "Reusable dialog, focus management, and error recovery utilities",
-      "synonyms": [
-        "BaseDialog",
-        "focusManager",
-        "ErrorBoundary"
-      ],
-      "description": "Provides standardized dialogs that prevent accidental outside click close, consistent focus-on-open behavior via hooks, reusable delete confirmation dialogs, and an app-wide error boundary with reload recovery.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-25",
-      "title": "Client-side custom category storage",
-      "synonyms": [
-        "localStorage categories",
-        "DynamicSelect options"
-      ],
-      "description": "Persists and manages user-defined category lists (Gewerke, Bereiche, Kategorien, Media-Kategorien, Dokument-Bereiche) in localStorage with add flows integrated into DynamicSelect components across the app.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-26",
-      "title": "URL/session parameter utilities for persisted parameters and secrets",
-      "synonyms": [
-        "urlParams utilities",
-        "session persisted params"
-      ],
-      "description": "Utility functions to read parameters from query or hash, persist values in sessionStorage, and extract/clear secrets from the URL hash to reduce leakage risk.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-27",
-      "title": "Backend support for media drag-and-drop ordering (bulk position update API)",
-      "synonyms": [
-        "bulkUpdateMediaPositions",
-        "media ordering persistence"
-      ],
-      "description": "Adds/implements a backend actor method to persist media ordering via bulk position updates so the Media drag-and-drop reordering flow can complete without runtime actor method errors, with corresponding frontend typings/actor wiring updates.",
-      "reqIds": [
-        "AR-2",
-        "AR-5"
-      ],
-      "version": 1
-    },
-    {
-      "id": "IF-28",
-      "title": "Persistent server-side PDF preview thumbnails for Media PDFs",
-      "synonyms": [
-        "PersistentPDFPreview",
-        "server-generated PDF thumbnail",
-        "stored first-page preview"
-      ],
-      "description": "Implements persistent, one-time generated PDF first-page previews for Media PDF tiles (stored in backend/blob storage and reused), replacing unreliable inline rendering/fallback icons while keeping the full PDF viewer as a separate click-to-open experience.",
-      "reqIds": [
-        "AR-1",
-        "AR-3",
-        "AR-4"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-fix-media-deletion-by-implementing-a-backend-deletemedia-api-and-wiring-the-frontend-mutation-to-it-so-users-can-reliably-delete-images-and-pdfs-without-runtime-errors",
-      "title": "Fix Media deletion by implementing a backend `deleteMedia` API and wiring the frontend mutation to it so users can reliably delete images and PDFs without runtime errors.",
+      "id": "feature-fix-the-end-to-end-create-contact-flow-on-the-contacts-page-so-a-newly-created-contact-is-persisted-for-the-logged-in-user-and-appears-immediately-in-the-contacts-list-after-submission",
+      "title": "Fix the end-to-end \"Create contact\" flow on the Contacts page so a newly created contact is persisted for the logged-in user and appears immediately in the contacts list after submission.",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-make-pdf-previews-in-the-media-grid-view-render-correctly-and-consistently-show-a-real-first-page-thumbnail-preview-instead-of-a-generic-file-icon-when-the-pdf-is-valid-and-reachable",
-      "title": "Make PDF previews in the Media grid view render correctly and consistently (show a real first-page thumbnail preview instead of a generic file icon when the PDF is valid and reachable).",
+      "id": "feature-fix-the-end-to-end-create-link-flow-on-the-contacts-page-so-a-newly-created-helpful-link-is-persisted-for-the-logged-in-user-and-appears-immediately-in-the-links-list-after-submission",
+      "title": "Fix the end-to-end \"Create link\" flow on the Contacts page so a newly created helpful link is persisted for the logged-in user and appears immediately in the links list after submission.",
       "reqIds": [
         "REQ-2"
       ],
       "version": 1
     },
     {
-      "id": "feature-extend-the-roadmap-project-edit-dialog-to-allow-adding-editing-removing-cost-items-directly-in-the-editor-and-ensure-changes-are-synced-with-the-kosten-bersicht-page",
-      "title": "Extend the Roadmap project edit dialog to allow adding/editing/removing cost items directly in the editor, and ensure changes are synced with the Kostenübersicht page.",
+      "id": "feature-ensure-no-other-app-functionality-or-ui-behavior-is-changed-beyond-what-is-required-to-restore-create-contact-and-create-link-on-the-contacts-page",
+      "title": "Ensure no other app functionality or UI behavior is changed beyond what is required to restore \"Create contact\" and \"Create link\" on the Contacts page.",
       "reqIds": [
         "REQ-3"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-make-project-start-and-end-dates-optional-can-be-left-blank-during-creation-and-editing-and-update-roadmap-calendar-rendering-to-handle-projects-without-dates-gracefully",
-      "title": "Make project start and end dates optional (can be left blank during creation and editing), and update Roadmap/calendar rendering to handle projects without dates gracefully.",
-      "reqIds": [
-        "REQ-4"
       ],
       "version": 1
     }
   ],
   "new_feature_requests": [
     {
-      "id": "AR-5",
-      "summary": "Medien-Reihenfolge/Sorting: Persistente globale Reihenfolge (nicht pro Projekt), kompatibel mit Filtern/Suche definieren und umsetzen",
+      "id": "AR-1",
+      "summary": "Fix: Kontakte erstellen funktioniert wieder (Kontakt-Page)",
       "reqIds": [],
       "status": "pending"
     },
     {
-      "id": "AR-6",
-      "summary": "Media löschen fixen: Backend-API/Actor-Methode deleteMedia bereitstellen und Frontend-Mutation/Typing anpassen (Fehler: actor.deleteMedia is not a function)",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-7",
-      "summary": "PDF Preview im Media-Grid korrekt/funktionsfähig machen (Thumbnail/Preview-Darstellung)",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-8",
-      "summary": "Roadmap Projekt-Bearbeiten-Dialog erweitern: Kostenpositionen direkt im Editor hinzufügen/bearbeiten und mit Kostenübersicht synchronisieren",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-9",
-      "summary": "Projekte: Start- und Enddatum optional machen (später festlegbar) inkl. korrekter Darstellung in Roadmap/Kalender ohne Datum",
+      "id": "AR-2",
+      "summary": "Fix: Links erstellen funktioniert wieder",
       "reqIds": [],
       "status": "pending"
     }
   ],
-  "gameProjectType": "none",
-  "projectName": "Umbau-Manager V2",
-  "clarification_mode": "pro",
+  "projectName": "Restore Contacts page functionality: create contact and create link",
+  "clarification_mode": "instant",
   "clarification_rounds": 0
 }

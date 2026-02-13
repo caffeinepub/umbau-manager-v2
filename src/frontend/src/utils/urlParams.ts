@@ -206,3 +206,27 @@ export function getSecretFromHash(paramName: string): string | null {
 export function getSecretParameter(paramName: string): string | null {
     return getSecretFromHash(paramName);
 }
+
+/**
+ * Sets a task selection parameter for navigation from Dashboard to Tasks page
+ * Stores the selected task ID in sessionStorage for retrieval by Tasks page
+ *
+ * @param taskId - The ID of the task to select
+ */
+export function setSelectedTaskId(taskId: string): void {
+    storeSessionParameter('selectedTaskId', taskId);
+}
+
+/**
+ * Gets the selected task ID and clears it from storage
+ * Used by Tasks page to retrieve and consume the selection parameter
+ *
+ * @returns The selected task ID if found, null otherwise
+ */
+export function getAndClearSelectedTaskId(): string | null {
+    const taskId = getSessionParameter('selectedTaskId');
+    if (taskId) {
+        clearSessionParameter('selectedTaskId');
+    }
+    return taskId;
+}
