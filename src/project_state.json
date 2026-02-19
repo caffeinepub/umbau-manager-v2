@@ -1,37 +1,62 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "New project",
+  "summary": "App with invite code system: users can create a new family/project or join an existing one using invite codes stored in backend Map with one-time use logic",
   "architectural_notes": [
-    "Scope constraint: Only restore 'Kontakt erstellen' and 'Link erstellen'; leave all other functionality unchanged."
+    "Invite codes stored in HashMap with one-time use pattern (delete after use)",
+    "Startscreen separates create vs join flows before main app access",
+    "Backend exports invite functions: createInvite, useInvite, generateInviteCode"
   ],
   "known_issues": [
-    "Kontakte erstellen funktioniert aktuell nicht.",
-    "Links erstellen funktioniert aktuell nicht."
+    "Previous 'Actor not available' error caused by frontend calling non-existent backend methods"
   ],
   "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-fix-the-end-to-end-create-contact-flow-on-the-contacts-page-so-a-newly-created-contact-is-persisted-for-the-logged-in-user-and-appears-immediately-in-the-contacts-list-after-submission",
-      "title": "Fix the end-to-end \"Create contact\" flow on the Contacts page so a newly created contact is persisted for the logged-in user and appears immediately in the contacts list after submission.",
+      "id": "feature-create-welcome-screen-with-app-icon-at-top-centered-layout-similar-to-familyhub-screenshot",
+      "title": "Create welcome screen with app icon at top, centered layout similar to FamilyHub screenshot",
       "reqIds": [
-        "REQ-1"
+        "REQ-4"
       ],
       "version": 1
     },
     {
-      "id": "feature-fix-the-end-to-end-create-link-flow-on-the-contacts-page-so-a-newly-created-helpful-link-is-persisted-for-the-logged-in-user-and-appears-immediately-in-the-links-list-after-submission",
-      "title": "Fix the end-to-end \"Create link\" flow on the Contacts page so a newly created helpful link is persisted for the logged-in user and appears immediately in the links list after submission.",
+      "id": "feature-add-create-a-new-family-button-green-primary-style-that-makes-the-user-the-admin-owner-and-initializes-a-new-family-team",
+      "title": "Add 'Create a New Family' button (green/primary style) that makes the user the admin/owner and initializes a new family/team",
       "reqIds": [
-        "REQ-2"
+        "REQ-5"
       ],
       "version": 1
     },
     {
-      "id": "feature-ensure-no-other-app-functionality-or-ui-behavior-is-changed-beyond-what-is-required-to-restore-create-contact-and-create-link-on-the-contacts-page",
-      "title": "Ensure no other app functionality or UI behavior is changed beyond what is required to restore \"Create contact\" and \"Create link\" on the Contacts page.",
+      "id": "feature-add-join-existing-family-button-gray-secondary-style-that-prompts-user-to-enter-an-invite-code",
+      "title": "Add 'Join Existing Family' button (gray/secondary style) that prompts user to enter an invite code",
       "reqIds": [
-        "REQ-3"
+        "REQ-6"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-or-text-divider-between-the-two-main-action-buttons-on-welcome-screen",
+      "title": "Add 'or' text divider between the two main action buttons on welcome screen",
+      "reqIds": [
+        "REQ-7"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-logout-link-at-bottom-of-welcome-screen-for-users-who-want-to-switch-identities",
+      "title": "Add logout link at bottom of welcome screen for users who want to switch identities",
+      "reqIds": [
+        "REQ-8"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-show-welcome-screen-to-authenticated-users-who-have-not-yet-joined-or-created-a-family-team",
+      "title": "Show welcome screen to authenticated users who have not yet joined or created a family/team",
+      "reqIds": [
+        "REQ-9"
       ],
       "version": 1
     }
@@ -39,18 +64,42 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Fix: Kontakte erstellen funktioniert wieder (Kontakt-Page)",
+      "summary": "Backend invite code API with Map storage and one-time use logic",
       "reqIds": [],
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "AR-2",
-      "summary": "Fix: Links erstellen funktioniert wieder",
+      "summary": "Startscreen with options to create new family or join existing via invite code",
       "reqIds": [],
+      "status": "in_progress"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Create backend invite code generation function that generates unique one-time use invite codes and stores them in a Map with associated team/family information",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Create backend invite code validation function that checks if a code exists, returns the associated team information, and deletes the code after successful use",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-5",
+      "summary": "Export all invite-related backend actor methods to fix 'Actor not available' error",
+      "reqIds": [
+        "REQ-3"
+      ],
       "status": "pending"
     }
   ],
-  "projectName": "Restore Contacts page functionality: create contact and create link",
+  "projectName": "FamilyHub",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

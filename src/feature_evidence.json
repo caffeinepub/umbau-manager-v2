@@ -2,10 +2,11 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-fix-the-end-to-end-create-contact-flow-on-the-contacts-page-so-a-newly-created-contact-is-persisted-for-the-logged-in-user-and-appears-immediately-in-the-contacts-list-after-submission",
-      "featureTitle": "Fix the end-to-end \"Create contact\" flow on the Contacts page so a newly created contact is persisted for the logged-in user and appears immediately in the contacts list after submission.",
+      "featureId": "feature-create-welcome-screen-with-app-icon-at-top-centered-layout-similar-to-familyhub-screenshot",
+      "featureTitle": "Create welcome screen with app icon at top, centered layout similar to FamilyHub screenshot",
       "files": [
-        "frontend/src/hooks/useQueries.ts"
+        "frontend/src/App.tsx",
+        "frontend/src/pages/WelcomeScreen.tsx"
       ],
       "components": [
         "authorization@3.0.0",
@@ -14,18 +15,20 @@
         "shadcn-ui@1.0.0",
         "build-template-react@1.0.0",
         "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
+        "github-export-icp-cli@1.0.0",
+        "invite-links@3.0.0"
       ],
       "testIds": [
-        "REQ-1"
+        "REQ-4"
       ],
       "confidence": "high"
     },
     {
-      "featureId": "feature-fix-the-end-to-end-create-link-flow-on-the-contacts-page-so-a-newly-created-helpful-link-is-persisted-for-the-logged-in-user-and-appears-immediately-in-the-links-list-after-submission",
-      "featureTitle": "Fix the end-to-end \"Create link\" flow on the Contacts page so a newly created helpful link is persisted for the logged-in user and appears immediately in the links list after submission.",
+      "featureId": "feature-add-create-a-new-family-button-green-primary-style-that-makes-the-user-the-admin-owner-and-initializes-a-new-family-team",
+      "featureTitle": "Add 'Create a New Family' button (green/primary style) that makes the user the admin/owner and initializes a new family/team",
       "files": [
-        "frontend/src/hooks/useQueries.ts"
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/WelcomeScreen.tsx"
       ],
       "components": [
         "authorization@3.0.0",
@@ -34,17 +37,84 @@
         "shadcn-ui@1.0.0",
         "build-template-react@1.0.0",
         "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
+        "github-export-icp-cli@1.0.0",
+        "invite-links@3.0.0"
       ],
       "testIds": [
-        "REQ-2"
+        "REQ-5"
       ],
       "confidence": "high"
     },
     {
-      "featureId": "feature-ensure-no-other-app-functionality-or-ui-behavior-is-changed-beyond-what-is-required-to-restore-create-contact-and-create-link-on-the-contacts-page",
-      "featureTitle": "Ensure no other app functionality or UI behavior is changed beyond what is required to restore \"Create contact\" and \"Create link\" on the Contacts page.",
+      "featureId": "feature-add-join-existing-family-button-gray-secondary-style-that-prompts-user-to-enter-an-invite-code",
+      "featureTitle": "Add 'Join Existing Family' button (gray/secondary style) that prompts user to enter an invite code",
       "files": [
+        "frontend/src/components/JoinFamilyDialog.tsx",
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/WelcomeScreen.tsx"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "invite-links@3.0.0"
+      ],
+      "testIds": [
+        "REQ-6"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-add-or-text-divider-between-the-two-main-action-buttons-on-welcome-screen",
+      "featureTitle": "Add 'or' text divider between the two main action buttons on welcome screen",
+      "files": [
+        "frontend/src/pages/WelcomeScreen.tsx"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "invite-links@3.0.0"
+      ],
+      "testIds": [
+        "REQ-7"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-add-logout-link-at-bottom-of-welcome-screen-for-users-who-want-to-switch-identities",
+      "featureTitle": "Add logout link at bottom of welcome screen for users who want to switch identities",
+      "files": [
+        "frontend/src/pages/WelcomeScreen.tsx"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "invite-links@3.0.0"
+      ],
+      "testIds": [
+        "REQ-8"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-show-welcome-screen-to-authenticated-users-who-have-not-yet-joined-or-created-a-family-team",
+      "featureTitle": "Show welcome screen to authenticated users who have not yet joined or created a family/team",
+      "files": [
+        "frontend/src/App.tsx",
         "frontend/src/hooks/useQueries.ts"
       ],
       "components": [
@@ -54,10 +124,11 @@
         "shadcn-ui@1.0.0",
         "build-template-react@1.0.0",
         "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
+        "github-export-icp-cli@1.0.0",
+        "invite-links@3.0.0"
       ],
       "testIds": [
-        "REQ-3"
+        "REQ-9"
       ],
       "confidence": "high"
     }

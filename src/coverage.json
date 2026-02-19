@@ -1,48 +1,109 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-12T18:57:43.492Z",
+  "generatedAt": "2026-02-19T16:23:20.289Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 3,
-    "implemented": 3,
+    "total": 9,
+    "implemented": 6,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Fix the end-to-end \"Create contact\" flow on the Contacts page so a newly created contact is persisted for the logged-in user and appears immediately in the contacts list after submission.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/pages/Contacts.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/hooks/useQueries.ts"
-        ]
+        "summary": "Create backend invite code generation function that generates unique one-time use invite codes and stores them in a Map with associated team/family information",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
       },
       {
         "id": "REQ-2",
-        "summary": "Fix the end-to-end \"Create link\" flow on the Contacts page so a newly created helpful link is persisted for the logged-in user and appears immediately in the links list after submission.",
+        "summary": "Create backend invite code validation function that checks if a code exists, returns the associated team information, and deletes the code after successful use",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-3",
+        "summary": "Export all invite-related backend actor methods to fix 'Actor not available' error",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-4",
+        "summary": "Create welcome screen with app icon at top, centered layout similar to FamilyHub screenshot",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/pages/Contacts.tsx"
+          "frontend/src/pages/WelcomeScreen.tsx",
+          "frontend/src/App.tsx"
         ],
         "matchedFiles": [
+          "frontend/src/pages/WelcomeScreen.tsx",
+          "frontend/src/App.tsx"
+        ]
+      },
+      {
+        "id": "REQ-5",
+        "summary": "Add 'Create a New Family' button (green/primary style) that makes the user the admin/owner and initializes a new family/team",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/WelcomeScreen.tsx",
+          "frontend/src/hooks/useQueries.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/WelcomeScreen.tsx",
           "frontend/src/hooks/useQueries.ts"
         ]
       },
       {
-        "id": "REQ-3",
-        "summary": "Ensure no other app functionality or UI behavior is changed beyond what is required to restore \"Create contact\" and \"Create link\" on the Contacts page.",
+        "id": "REQ-6",
+        "summary": "Add 'Join Existing Family' button (gray/secondary style) that prompts user to enter an invite code",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/pages/Contacts.tsx"
+          "frontend/src/pages/WelcomeScreen.tsx",
+          "frontend/src/components/JoinFamilyDialog.tsx",
+          "frontend/src/hooks/useQueries.ts"
         ],
         "matchedFiles": [
+          "frontend/src/pages/WelcomeScreen.tsx",
+          "frontend/src/components/JoinFamilyDialog.tsx",
+          "frontend/src/hooks/useQueries.ts"
+        ]
+      },
+      {
+        "id": "REQ-7",
+        "summary": "Add 'or' text divider between the two main action buttons on welcome screen",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/WelcomeScreen.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/WelcomeScreen.tsx"
+        ]
+      },
+      {
+        "id": "REQ-8",
+        "summary": "Add logout link at bottom of welcome screen for users who want to switch identities",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/WelcomeScreen.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/WelcomeScreen.tsx"
+        ]
+      },
+      {
+        "id": "REQ-9",
+        "summary": "Show welcome screen to authenticated users who have not yet joined or created a family/team",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/App.tsx",
+          "frontend/src/hooks/useQueries.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/App.tsx",
           "frontend/src/hooks/useQueries.ts"
         ]
       }
@@ -50,16 +111,21 @@
   },
   "changedFiles": [
     "backend/main.mo",
-    "backend/migration.mo",
     "build-request.json",
+    "caffeine.lock.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
+    "frontend/src/App.tsx",
     "frontend/src/backend.d.ts",
     "frontend/src/backend.ts",
+    "frontend/src/components/JoinFamilyDialog.tsx",
+    "frontend/src/config.ts",
     "frontend/src/declarations/backend.did.d.ts",
     "frontend/src/declarations/backend.did.js",
     "frontend/src/hooks/useQueries.ts",
+    "frontend/src/pages/Kostenuebersicht.tsx",
+    "frontend/src/pages/WelcomeScreen.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

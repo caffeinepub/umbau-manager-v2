@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
 import { toast } from 'sonner';
-import type { Task, Project, Document, Media, MediaPositionUpdate, MediaUpdate, CostItem, UserProfile, UserType, KostenUebersicht } from '../backend';
+import type { Task, Project, Document, Media, MediaPositionUpdate, MediaUpdate, CostItem, UserProfile, UserType, KostenUebersicht, TeamMember } from '../backend';
+import { UserRole } from '../backend';
 import type { Principal } from '@icp-sdk/core/principal';
 
 // ============================================================================
@@ -75,6 +76,83 @@ export function useSaveCallerUserProfile() {
     onError: (error: Error) => {
       console.error('Save profile error:', error);
       toast.error('Failed to save profile');
+    },
+  });
+}
+
+// ============================================================================
+// Team Association Queries
+// ============================================================================
+
+export function useHasTeamAssociation() {
+  const { actor, isFetching: actorFetching } = useActor();
+
+  const query = useQuery<boolean>({
+    queryKey: ['hasTeamAssociation'],
+    queryFn: async () => {
+      if (!actor) throw new Error('Actor not available');
+      try {
+        const teamMembers = await actor.listTeamMembers();
+        return teamMembers.length > 0;
+      } catch (error) {
+        // If user is not admin, they can't list team members
+        // Check if they have a role assigned
+        const role = await actor.getCallerUserRole();
+        return role === UserRole.user || role === UserRole.admin;
+      }
+    },
+    enabled: !!actor && !actorFetching,
+    retry: false,
+  });
+
+  return {
+    ...query,
+    isLoading: actorFetching || query.isLoading,
+    isFetched: !!actor && query.isFetched,
+  };
+}
+
+export function useCreateFamily() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error('Actor not available');
+      // Initialize access control makes the caller the first admin
+      await actor.initializeAccessControl();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hasTeamAssociation'] });
+      queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
+      queryClient.invalidateQueries({ queryKey: ['isAdmin'] });
+      toast.success('Familie erfolgreich erstellt');
+    },
+    onError: (error: Error) => {
+      console.error('Create family error:', error);
+      toast.error('Fehler beim Erstellen der Familie');
+    },
+  });
+}
+
+export function useJoinFamily() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (inviteCode: string) => {
+      if (!actor) throw new Error('Actor not available');
+      await actor.validateInviteCode(inviteCode);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hasTeamAssociation'] });
+      queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
+      queryClient.invalidateQueries({ queryKey: ['isAdmin'] });
+      toast.success('Erfolgreich der Familie beigetreten');
+    },
+    onError: (error: Error) => {
+      console.error('Join family error:', error);
+      throw error; // Re-throw to handle in component
     },
   });
 }
@@ -476,14 +554,14 @@ export function useDeleteContact() {
 }
 
 // ============================================================================
-// Helpful Link Queries
+// Helpful Links Queries
 // ============================================================================
 
-export function useGetAllLinks() {
+export function useGetAllHelpfulLinks() {
   const { actor, isFetching } = useActor();
 
   return useQuery<HilfreicherLink[]>({
-    queryKey: ['links'],
+    queryKey: ['helpfulLinks'],
     queryFn: async () => {
       if (!actor) return [];
       return actor.getAllHelpfulLinks();
@@ -492,7 +570,7 @@ export function useGetAllLinks() {
   });
 }
 
-export function useCreateLink() {
+export function useCreateHelpfulLink() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
 
@@ -516,7 +594,7 @@ export function useCreateLink() {
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['links'] });
+      queryClient.invalidateQueries({ queryKey: ['helpfulLinks'] });
       toast.success('Link erfolgreich erstellt');
     },
     onError: (error: Error) => {
@@ -526,7 +604,7 @@ export function useCreateLink() {
   });
 }
 
-export function useUpdateLink() {
+export function useUpdateHelpfulLink() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
 
@@ -550,7 +628,7 @@ export function useUpdateLink() {
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['links'] });
+      queryClient.invalidateQueries({ queryKey: ['helpfulLinks'] });
       toast.success('Link erfolgreich aktualisiert');
     },
     onError: (error: Error) => {
@@ -560,7 +638,7 @@ export function useUpdateLink() {
   });
 }
 
-export function useDeleteLink() {
+export function useDeleteHelpfulLink() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
 
@@ -570,7 +648,7 @@ export function useDeleteLink() {
       await actor.deleteHelpfulLink(linkId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['links'] });
+      queryClient.invalidateQueries({ queryKey: ['helpfulLinks'] });
       toast.success('Link erfolgreich gelöscht');
     },
     onError: (error: Error) => {
@@ -580,14 +658,20 @@ export function useDeleteLink() {
   });
 }
 
+// Backward compatibility aliases for links
+export const useGetAllLinks = useGetAllHelpfulLinks;
+export const useCreateLink = useCreateHelpfulLink;
+export const useUpdateLink = useUpdateHelpfulLink;
+export const useDeleteLink = useDeleteHelpfulLink;
+
 // ============================================================================
 // Document Queries
 // ============================================================================
 
-export function useGetUserDocuments() {
+export function useGetAllDocuments() {
   const { actor, isFetching } = useActor();
 
-  return useQuery<Document[]>({
+  return useQuery<Dokument[]>({
     queryKey: ['documents'],
     queryFn: async () => {
       if (!actor) return [];
@@ -596,9 +680,6 @@ export function useGetUserDocuments() {
     enabled: !!actor && !isFetching,
   });
 }
-
-// Alias for backward compatibility
-export const useGetAllDocuments = useGetUserDocuments;
 
 export function useUploadDocument() {
   const { actor } = useActor();
@@ -614,15 +695,22 @@ export function useUploadDocument() {
       blob: any;
     }) => {
       if (!actor) throw new Error('Actor not available');
-      await actor.uploadDocumentWithPDF(params.id, params.name, params.bereich, params.typ, params.status, params.blob);
+      await actor.uploadDocumentWithPDF(
+        params.id,
+        params.name,
+        params.bereich,
+        params.typ,
+        params.status,
+        params.blob
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
-      toast.success('Document uploaded successfully');
+      toast.success('Dokument erfolgreich hochgeladen');
     },
     onError: (error: Error) => {
       console.error('Upload document error:', error);
-      toast.error('Failed to upload document');
+      toast.error('Fehler beim Hochladen des Dokuments');
     },
   });
 }
@@ -638,11 +726,11 @@ export function useDeleteDocument() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
-      toast.success('Document deleted successfully');
+      toast.success('Dokument erfolgreich gelöscht');
     },
     onError: (error: Error) => {
       console.error('Delete document error:', error);
-      toast.error('Failed to delete document');
+      toast.error('Fehler beim Löschen des Dokuments');
     },
   });
 }
@@ -651,10 +739,10 @@ export function useDeleteDocument() {
 // Media Queries
 // ============================================================================
 
-export function useGetUserMedia() {
+export function useGetAllMedia() {
   const { actor, isFetching } = useActor();
 
-  return useQuery<Media[]>({
+  return useQuery<Medium[]>({
     queryKey: ['media'],
     queryFn: async () => {
       if (!actor) return [];
@@ -663,9 +751,6 @@ export function useGetUserMedia() {
     enabled: !!actor && !isFetching,
   });
 }
-
-// Alias for backward compatibility
-export const useGetAllMedia = useGetUserMedia;
 
 export function useUploadMedia() {
   const { actor } = useActor();
@@ -682,15 +767,23 @@ export function useUploadMedia() {
       blob: any;
     }) => {
       if (!actor) throw new Error('Actor not available');
-      await actor.uploadMedia(params.id, params.name, params.kategorie, params.typ, params.position, params.tags, params.blob);
+      await actor.uploadMedia(
+        params.id,
+        params.name,
+        params.kategorie,
+        params.typ,
+        params.position,
+        params.tags,
+        params.blob
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['media'] });
-      toast.success('Media uploaded successfully');
+      toast.success('Medium erfolgreich hochgeladen');
     },
     onError: (error: Error) => {
       console.error('Upload media error:', error);
-      toast.error('Failed to upload media');
+      toast.error('Fehler beim Hochladen des Mediums');
     },
   });
 }
@@ -706,11 +799,11 @@ export function useUpdateMedia() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['media'] });
-      toast.success('Media updated successfully');
+      toast.success('Medium erfolgreich aktualisiert');
     },
     onError: (error: Error) => {
       console.error('Update media error:', error);
-      toast.error('Failed to update media');
+      toast.error('Fehler beim Aktualisieren des Mediums');
     },
   });
 }
@@ -726,11 +819,11 @@ export function useDeleteMedia() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['media'] });
-      toast.success('Media deleted successfully');
+      toast.success('Medium erfolgreich gelöscht');
     },
     onError: (error: Error) => {
       console.error('Delete media error:', error);
-      toast.error('Failed to delete media');
+      toast.error('Fehler beim Löschen des Mediums');
     },
   });
 }
@@ -746,11 +839,10 @@ export function useBulkUpdateMediaPositions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['media'] });
-      toast.success('Media positions updated');
     },
     onError: (error: Error) => {
-      console.error('Bulk update media positions error:', error);
-      toast.error('Failed to update media positions');
+      console.error('Bulk update positions error:', error);
+      toast.error('Fehler beim Aktualisieren der Positionen');
     },
   });
 }
@@ -772,19 +864,14 @@ export function useGetAllCostItems() {
   });
 }
 
-// Alias for backward compatibility
-export const useGetAllKostenpunkte = useGetAllCostItems;
-
-export function useGetKostenUebersicht(projektId?: string | null) {
+export function useGetCostItemsByProject() {
   const { actor, isFetching } = useActor();
 
-  return useQuery<KostenUebersicht>({
-    queryKey: ['kostenUebersicht', projektId],
-    queryFn: async () => {
+  return useMutation({
+    mutationFn: async (projectId: string) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.getKostenUebersicht(projektId || null);
+      return actor.getKostenpunkteByProjekt(projectId);
     },
-    enabled: !!actor && !isFetching,
   });
 }
 
@@ -800,62 +887,183 @@ export function useAddCostItem() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['costItems'] });
       queryClient.invalidateQueries({ queryKey: ['kostenUebersicht'] });
-      toast.success('Cost item added successfully');
+      toast.success('Kostenpunkt erfolgreich hinzugefügt');
     },
     onError: (error: Error) => {
       console.error('Add cost item error:', error);
-      toast.error('Failed to add cost item');
+      toast.error('Fehler beim Hinzufügen des Kostenpunkts');
     },
   });
 }
-
-// Alias for backward compatibility
-export const useAddKostenpunkt = useAddCostItem;
 
 export function useUpdateCostItem() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: { projectId: string; kostId: string; updatedKost: CostItem }) => {
+    mutationFn: async (params: { projectId: string; costId: string; costItem: CostItem }) => {
       if (!actor) throw new Error('Actor not available');
-      await actor.updateKostenpunkt(params.projectId, params.kostId, params.updatedKost);
+      await actor.updateKostenpunkt(params.projectId, params.costId, params.costItem);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['costItems'] });
       queryClient.invalidateQueries({ queryKey: ['kostenUebersicht'] });
-      toast.success('Cost item updated successfully');
+      toast.success('Kostenpunkt erfolgreich aktualisiert');
     },
     onError: (error: Error) => {
       console.error('Update cost item error:', error);
-      toast.error('Failed to update cost item');
+      toast.error('Fehler beim Aktualisieren des Kostenpunkts');
     },
   });
 }
-
-// Alias for backward compatibility
-export const useUpdateKostenpunkt = useUpdateCostItem;
 
 export function useDeleteCostItem() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: { projectId: string; kostenpunktId: string }) => {
+    mutationFn: async (params: { projectId: string; costItemId: string }) => {
       if (!actor) throw new Error('Actor not available');
-      await actor.deleteKostenpunkt(params.projectId, params.kostenpunktId);
+      await actor.deleteKostenpunkt(params.projectId, params.costItemId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['costItems'] });
       queryClient.invalidateQueries({ queryKey: ['kostenUebersicht'] });
-      toast.success('Cost item deleted successfully');
+      toast.success('Kostenpunkt erfolgreich gelöscht');
     },
     onError: (error: Error) => {
       console.error('Delete cost item error:', error);
-      toast.error('Failed to delete cost item');
+      toast.error('Fehler beim Löschen des Kostenpunkts');
     },
   });
 }
 
-// Alias for backward compatibility
+export function useGetKostenUebersicht() {
+  const { actor, isFetching } = useActor();
+
+  return useMutation({
+    mutationFn: async (projectId: string | null) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.getKostenUebersicht(projectId);
+    },
+  });
+}
+
+// Backward compatibility aliases
+export const useGetAllKostenpunkte = useGetAllCostItems;
+export const useAddKostenpunkt = useAddCostItem;
+export const useUpdateKostenpunkt = useUpdateCostItem;
 export const useDeleteKostenpunkt = useDeleteCostItem;
+
+// ============================================================================
+// Team Management Queries
+// ============================================================================
+
+export function useIsCurrentUserAdmin() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<boolean>({
+    queryKey: ['isAdmin'],
+    queryFn: async () => {
+      if (!actor) return false;
+      return actor.isCallerAdmin();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useListTeamMembers() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<TeamMember[]>({
+    queryKey: ['teamMembers'],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.listTeamMembers();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useCreateInviteToken() {
+  const { actor } = useActor();
+
+  return useMutation({
+    mutationFn: async (role: UserRole) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.createInviteToken(role);
+    },
+    onError: (error: Error) => {
+      console.error('Create invite token error:', error);
+      toast.error('Fehler beim Erstellen des Einladungslinks');
+    },
+  });
+}
+
+export function useClaimInviteToken() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (token: string) => {
+      if (!actor) throw new Error('Actor not available');
+      await actor.claimInviteToken(token);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
+      queryClient.invalidateQueries({ queryKey: ['isAdmin'] });
+      queryClient.invalidateQueries({ queryKey: ['hasTeamAssociation'] });
+      toast.success('Erfolgreich dem Team beigetreten');
+    },
+    onError: (error: Error) => {
+      console.error('Claim invite token error:', error);
+      toast.error('Fehler beim Einlösen des Einladungslinks');
+    },
+  });
+}
+
+export function useUpdateTeamMemberRole() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { principal: string; role: UserRole }) => {
+      if (!actor) throw new Error('Actor not available');
+      // Convert string to Principal
+      const { Principal } = await import('@icp-sdk/core/principal');
+      const principal = Principal.fromText(params.principal);
+      await actor.updateTeamMemberRole(principal, params.role);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
+      toast.success('Rolle erfolgreich aktualisiert');
+    },
+    onError: (error: Error) => {
+      console.error('Update team member role error:', error);
+      toast.error('Fehler beim Aktualisieren der Rolle');
+    },
+  });
+}
+
+export function useRemoveTeamMember() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (principalStr: string) => {
+      if (!actor) throw new Error('Actor not available');
+      // Convert string to Principal
+      const { Principal } = await import('@icp-sdk/core/principal');
+      const principal = Principal.fromText(principalStr);
+      await actor.removeTeamMember(principal);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
+      toast.success('Mitglied erfolgreich entfernt');
+    },
+    onError: (error: Error) => {
+      console.error('Remove team member error:', error);
+      toast.error('Fehler beim Entfernen des Mitglieds');
+    },
+  });
+}

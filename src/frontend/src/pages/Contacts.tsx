@@ -20,8 +20,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Users, Plus, Mail, Phone, Building2, Pencil, Trash2, Link as LinkIcon, ExternalLink, Search } from 'lucide-react';
+import { Users, Plus, Mail, Phone, Building2, Pencil, Trash2, Link as LinkIcon, ExternalLink, Search, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
+import TeamTab from '../components/team/TeamTab';
 
 const CONTACT_ROLES = ['Architekt', 'Bauunternehmer', 'Elektriker', 'Sanitär', 'Heizung', 'Maler', 'Zimmermann', 'Sonstiges'];
 const LINK_CATEGORIES = ['Behörden', 'Lieferanten', 'Handwerker', 'Planung', 'Finanzen', 'Sonstiges'];
@@ -229,13 +230,13 @@ export default function Contacts() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Kontakte & Links</h1>
           <p className="text-muted-foreground mt-2">
-            Verwalten Sie Ihre Kontakte und hilfreiche Links
+            Verwalten Sie Ihre Kontakte, Links und Team-Mitglieder
           </p>
         </div>
       </div>
 
       <Tabs defaultValue="contacts" className="space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3">
           <TabsTrigger value="contacts">
             <Users className="h-4 w-4 mr-2" />
             Kontakte
@@ -243,6 +244,10 @@ export default function Contacts() {
           <TabsTrigger value="links">
             <LinkIcon className="h-4 w-4 mr-2" />
             Hilfreiche Links
+          </TabsTrigger>
+          <TabsTrigger value="team">
+            <UserPlus className="h-4 w-4 mr-2" />
+            Team
           </TabsTrigger>
         </TabsList>
 
@@ -456,9 +461,9 @@ export default function Contacts() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Alle Kategorien</SelectItem>
-                {LINK_CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
+                {LINK_CATEGORIES.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -476,7 +481,9 @@ export default function Contacts() {
                     {editingLink ? 'Link bearbeiten' : 'Neuer Link'}
                   </DialogTitle>
                   <DialogDescription>
-                    {editingLink ? 'Bearbeiten Sie den Link' : 'Fügen Sie einen hilfreichen Link hinzu'}
+                    {editingLink
+                      ? 'Bearbeiten Sie die Link-Informationen'
+                      : 'Fügen Sie einen neuen hilfreichen Link hinzu'}
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={editingLink ? handleUpdateLink : handleCreateLink} className="space-y-4">
@@ -508,9 +515,9 @@ export default function Contacts() {
                         <SelectValue placeholder="Kategorie wählen..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {LINK_CATEGORIES.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat}
+                        {LINK_CATEGORIES.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -522,7 +529,7 @@ export default function Contacts() {
                       id="beschreibung"
                       value={newLink.beschreibung}
                       onChange={(e) => setNewLink({ ...newLink, beschreibung: e.target.value })}
-                      placeholder="Kurze Beschreibung des Links..."
+                      placeholder="Kurze Beschreibung..."
                       rows={3}
                     />
                   </div>
@@ -570,26 +577,14 @@ export default function Contacts() {
               {filteredLinks.map((link) => (
                 <Card key={link.id} className="hover:shadow-md transition-shadow">
                   <CardHeader>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
-                        {link.logoUrl && (
-                          <img
-                            src={link.logoUrl}
-                            alt={link.titel}
-                            className="h-10 w-10 rounded object-contain shrink-0"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                            }}
-                          />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg truncate">{link.titel}</CardTitle>
-                          <CardDescription className="mt-1">
-                            <Badge variant="secondary">{link.kategorie}</Badge>
-                          </CardDescription>
-                        </div>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <CardTitle className="text-lg truncate">{link.titel}</CardTitle>
+                        <CardDescription className="flex items-center gap-2 mt-1">
+                          <Badge variant="secondary">{link.kategorie}</Badge>
+                        </CardDescription>
                       </div>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 ml-2">
                         <Button variant="ghost" size="icon" onClick={() => openEditLink(link)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -603,32 +598,35 @@ export default function Contacts() {
                     {link.beschreibung && (
                       <p className="text-sm text-muted-foreground line-clamp-2">{link.beschreibung}</p>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      asChild
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-primary hover:underline"
                     >
-                      <a href={link.url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Öffnen
-                      </a>
-                    </Button>
+                      <ExternalLink className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{link.url}</span>
+                    </a>
                   </CardContent>
                 </Card>
               ))}
             </div>
           )}
         </TabsContent>
+
+        {/* Team Tab */}
+        <TabsContent value="team" className="space-y-6">
+          <TeamTab />
+        </TabsContent>
       </Tabs>
 
       {/* Delete Contact Confirmation */}
-      <AlertDialog open={!!deleteContactId} onOpenChange={() => setDeleteContactId(null)}>
+      <AlertDialog open={!!deleteContactId} onOpenChange={(open) => !open && setDeleteContactId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Kontakt löschen?</AlertDialogTitle>
             <AlertDialogDescription>
-              Diese Aktion kann nicht rückgängig gemacht werden. Der Kontakt wird dauerhaft gelöscht.
+              Sind Sie sicher, dass Sie diesen Kontakt löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -641,12 +639,12 @@ export default function Contacts() {
       </AlertDialog>
 
       {/* Delete Link Confirmation */}
-      <AlertDialog open={!!deleteLinkId} onOpenChange={() => setDeleteLinkId(null)}>
+      <AlertDialog open={!!deleteLinkId} onOpenChange={(open) => !open && setDeleteLinkId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Link löschen?</AlertDialogTitle>
             <AlertDialogDescription>
-              Diese Aktion kann nicht rückgängig gemacht werden. Der Link wird dauerhaft gelöscht.
+              Sind Sie sicher, dass Sie diesen Link löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

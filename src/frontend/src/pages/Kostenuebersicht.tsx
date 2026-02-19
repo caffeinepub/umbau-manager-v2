@@ -166,8 +166,8 @@ export default function Kostenuebersicht() {
 
       await updateKostenpunkt.mutateAsync({
         projectId: item.projektId,
-        kostId: item.id,
-        updatedKost: updatedItem,
+        costId: item.id,
+        costItem: updatedItem,
       });
 
       setEditingState(null);
@@ -227,7 +227,7 @@ export default function Kostenuebersicht() {
     try {
       await deleteKostenpunkt.mutateAsync({
         projectId: projectId,
-        kostenpunktId: costItemId,
+        costItemId: costItemId,
       });
     } catch (error) {
       console.error('Error deleting cost item:', error);
@@ -482,22 +482,22 @@ export default function Kostenuebersicht() {
 
                       {/* Add New Cost Item Form */}
                       {addingToProject === projectId && (
-                        <Card className="mb-4 border-primary/50">
+                        <Card className="mb-4">
                           <CardContent className="pt-6">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="col-span-2 space-y-2">
-                                <Label htmlFor={`new-beschreibung-${projectId}`}>Beschreibung *</Label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="new-beschreibung">Beschreibung *</Label>
                                 <Input
-                                  id={`new-beschreibung-${projectId}`}
+                                  id="new-beschreibung"
                                   value={newCostItem.beschreibung}
                                   onChange={(e) => setNewCostItem({ ...newCostItem, beschreibung: e.target.value })}
-                                  placeholder="z.B. Solaranlage Installation"
+                                  placeholder="z.B. Materialkosten"
                                 />
                               </div>
                               <div className="space-y-2">
-                                <Label htmlFor={`new-betrag-${projectId}`}>Betrag (€) *</Label>
+                                <Label htmlFor="new-betrag">Betrag (€) *</Label>
                                 <Input
-                                  id={`new-betrag-${projectId}`}
+                                  id="new-betrag"
                                   type="number"
                                   step="0.01"
                                   min="0"
@@ -507,12 +507,12 @@ export default function Kostenuebersicht() {
                                 />
                               </div>
                               <div className="space-y-2">
-                                <Label htmlFor={`new-kategorie-${projectId}`}>Kategorie</Label>
+                                <Label htmlFor="new-kategorie">Kategorie *</Label>
                                 <Select
                                   value={newCostItem.kategorie}
                                   onValueChange={(value) => setNewCostItem({ ...newCostItem, kategorie: value })}
                                 >
-                                  <SelectTrigger id={`new-kategorie-${projectId}`}>
+                                  <SelectTrigger id="new-kategorie">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -525,12 +525,12 @@ export default function Kostenuebersicht() {
                                 </Select>
                               </div>
                               <div className="space-y-2">
-                                <Label htmlFor={`new-status-${projectId}`}>Status</Label>
+                                <Label htmlFor="new-status">Status *</Label>
                                 <Select
                                   value={newCostItem.status}
                                   onValueChange={(value) => setNewCostItem({ ...newCostItem, status: value })}
                                 >
-                                  <SelectTrigger id={`new-status-${projectId}`}>
+                                  <SelectTrigger id="new-status">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -543,21 +543,21 @@ export default function Kostenuebersicht() {
                                 </Select>
                               </div>
                               <div className="space-y-2">
-                                <Label htmlFor={`new-handwerker-${projectId}`}>Handwerker/Firma</Label>
+                                <Label htmlFor="new-handwerker">Handwerker</Label>
                                 <Input
-                                  id={`new-handwerker-${projectId}`}
+                                  id="new-handwerker"
                                   value={newCostItem.handwerker}
                                   onChange={(e) => setNewCostItem({ ...newCostItem, handwerker: e.target.value })}
                                   placeholder="Optional"
                                 />
                               </div>
                               <div className="space-y-2">
-                                <Label htmlFor={`new-dokument-${projectId}`}>Dokumentverknüpfung</Label>
+                                <Label htmlFor="new-dokument">Dokument</Label>
                                 <Select
                                   value={newCostItem.dokumentId}
                                   onValueChange={(value) => setNewCostItem({ ...newCostItem, dokumentId: value })}
                                 >
-                                  <SelectTrigger id={`new-dokument-${projectId}`}>
+                                  <SelectTrigger id="new-dokument">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -575,143 +575,163 @@ export default function Kostenuebersicht() {
                                   </SelectContent>
                                 </Select>
                               </div>
-                              <div className="col-span-2 flex gap-2 justify-end">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setAddingToProject(null);
-                                    setNewCostItem({
-                                      beschreibung: '',
-                                      betrag: '',
-                                      kategorie: 'Material',
-                                      status: 'geplant',
-                                      handwerker: '',
-                                      dokumentId: 'none',
-                                    });
-                                  }}
-                                >
-                                  Abbrechen
-                                </Button>
-                                <Button
-                                  onClick={() => handleAddCostItem(projectId)}
-                                  disabled={addKostenpunkt.isPending}
-                                >
-                                  {addKostenpunkt.isPending ? (
-                                    <>
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                      Wird hinzugefügt...
-                                    </>
-                                  ) : (
-                                    'Hinzufügen'
-                                  )}
-                                </Button>
-                              </div>
+                            </div>
+                            <div className="flex gap-2 mt-4">
+                              <Button
+                                onClick={() => handleAddCostItem(projectId)}
+                                disabled={addKostenpunkt.isPending}
+                              >
+                                {addKostenpunkt.isPending ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Wird hinzugefügt...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Hinzufügen
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => setAddingToProject(null)}
+                                disabled={addKostenpunkt.isPending}
+                              >
+                                Abbrechen
+                              </Button>
                             </div>
                           </CardContent>
                         </Card>
                       )}
 
-                      <div className="rounded-lg border overflow-hidden">
+                      {/* Project Summary */}
+                      {summary && (
+                        <div className="grid grid-cols-3 gap-4 mb-4">
+                          <Card>
+                            <CardContent className="pt-4">
+                              <div className="text-sm text-muted-foreground">Gesamt</div>
+                              <div className="text-2xl font-bold">{formatCurrency(summary.gesamt)}</div>
+                            </CardContent>
+                          </Card>
+                          <Card>
+                            <CardContent className="pt-4">
+                              <div className="text-sm text-muted-foreground">Bezahlt</div>
+                              <div className="text-2xl font-bold text-green-600">{formatCurrency(summary.bezahlt)}</div>
+                            </CardContent>
+                          </Card>
+                          <Card>
+                            <CardContent className="pt-4">
+                              <div className="text-sm text-muted-foreground">Offen</div>
+                              <div className="text-2xl font-bold text-orange-600">{formatCurrency(summary.offen)}</div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      )}
+
+                      {/* Cost Items Table */}
+                      <div className="rounded-md border">
                         <Table>
                           <TableHeader>
-                            <TableRow>
-                              <TableHead>Beschreibung</TableHead>
-                              <TableHead className="w-[150px]">Betrag (€)</TableHead>
-                              <TableHead className="w-[150px]">Kategorie</TableHead>
-                              <TableHead className="w-[120px]">Status</TableHead>
-                              <TableHead className="w-[180px]">Handwerker/Firma</TableHead>
+                            <TableRow className={isEvenGroup ? 'bg-muted/50' : ''}>
+                              <TableHead className="w-[200px]">Beschreibung</TableHead>
+                              <TableHead className="w-[120px]">Betrag</TableHead>
+                              <TableHead className="w-[120px]">Kategorie</TableHead>
+                              <TableHead className="w-[100px]">Status</TableHead>
+                              <TableHead className="w-[120px]">Datum</TableHead>
+                              <TableHead className="w-[150px]">Handwerker</TableHead>
                               <TableHead className="w-[200px]">Dokument</TableHead>
                               <TableHead className="w-[80px]">Aktionen</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {items.map((item) => (
-                              <TableRow
-                                key={item.id}
-                                className={isEvenGroup ? 'bg-muted/30' : 'bg-background'}
-                              >
-                                <TableCell className="font-medium">
-                                  {item.beschreibung}
+                              <TableRow key={item.id} className={isEvenGroup ? 'hover:bg-muted/30' : ''}>
+                                <TableCell className="font-medium">{item.beschreibung}</TableCell>
+                                <TableCell>{renderEditableCell(item, 'betrag', item.betrag)}</TableCell>
+                                <TableCell>{renderEditableCell(item, 'kategorie', item.kategorie)}</TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    {renderEditableCell(item, 'status', item.status)}
+                                    <Badge
+                                      variant={
+                                        item.status === 'bezahlt'
+                                          ? 'default'
+                                          : item.status === 'offen'
+                                          ? 'destructive'
+                                          : 'secondary'
+                                      }
+                                      className="ml-2"
+                                    >
+                                      {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                                    </Badge>
+                                  </div>
                                 </TableCell>
                                 <TableCell>
-                                  {renderEditableCell(item, 'betrag', item.betrag)}
+                                  {new Date(Number(item.datum / BigInt(1000000))).toLocaleDateString('de-DE')}
                                 </TableCell>
-                                <TableCell>
-                                  {renderEditableCell(item, 'kategorie', item.kategorie)}
-                                </TableCell>
-                                <TableCell>
-                                  {renderEditableCell(item, 'status', item.status)}
-                                </TableCell>
-                                <TableCell>
-                                  {renderEditableCell(item, 'handwerker', item.handwerker)}
-                                </TableCell>
-                                <TableCell>
-                                  {renderEditableCell(item, 'dokumentId', item.dokumentId)}
-                                </TableCell>
+                                <TableCell>{renderEditableCell(item, 'handwerker', item.handwerker)}</TableCell>
+                                <TableCell>{renderEditableCell(item, 'dokumentId', item.dokumentId)}</TableCell>
                                 <TableCell>
                                   <Button
-                                    size="icon"
                                     variant="ghost"
-                                    onClick={() => handleDeleteCostItem(item.projektId, item.id)}
-                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    size="icon"
+                                    onClick={() => handleDeleteCostItem(projectId, item.id)}
+                                    disabled={deleteKostenpunkt.isPending}
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                    {deleteKostenpunkt.isPending ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    )}
                                   </Button>
                                 </TableCell>
                               </TableRow>
                             ))}
-                            {/* Project Summary Row */}
-                            {summary && (
-                              <TableRow className="bg-primary/5 font-semibold border-t-2 border-primary/20">
-                                <TableCell className="text-right" colSpan={1}>
-                                  Summe {projectName}:
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex flex-col gap-1">
-                                    <span className="text-sm">Gesamt: {formatCurrency(summary.gesamt)}</span>
-                                    <span className="text-sm text-green-600 dark:text-green-400">Bezahlt: {formatCurrency(summary.bezahlt)}</span>
-                                    <span className="text-sm text-orange-600 dark:text-orange-400">Offen: {formatCurrency(summary.offen)}</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell colSpan={5} />
-                              </TableRow>
-                            )}
                           </TableBody>
                         </Table>
                       </div>
                     </div>
                   );
                 })}
-
-                {/* Total Summary */}
-                <div className="flex justify-end pt-4 border-t-2 border-primary">
-                  <div className="text-right space-y-2">
-                    <p className="text-sm text-muted-foreground font-semibold">Gesamtsumme aller Projekte</p>
-                    <div className="space-y-1">
-                      <p className="text-xl font-bold">Gesamt: {formatCurrency(totalSum)}</p>
-                      <p className="text-lg font-semibold text-green-600 dark:text-green-400">
-                        Bezahlt: {formatCurrency(totalBezahlt)}
-                      </p>
-                      <p className="text-lg font-semibold text-orange-600 dark:text-orange-400">
-                        Offen: {formatCurrency(totalOffen)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
           </CardContent>
         </Card>
-      </div>
 
-      {/* PDF Viewer Modal */}
-      <UnifiedPDFViewer
-        open={pdfViewerOpen}
-        onOpenChange={setPdfViewerOpen}
-        pdfUrl={selectedDocumentUrl}
-        title={selectedDocumentTitle}
-      />
+        {/* Total Summary */}
+        {sortedCostItems.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Gesamtübersicht</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <div className="text-sm text-muted-foreground">Gesamt</div>
+                  <div className="text-3xl font-bold">{formatCurrency(totalSum)}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Bezahlt</div>
+                  <div className="text-3xl font-bold text-green-600">{formatCurrency(totalBezahlt)}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Offen</div>
+                  <div className="text-3xl font-bold text-orange-600">{formatCurrency(totalOffen)}</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* PDF Viewer */}
+        <UnifiedPDFViewer
+          open={pdfViewerOpen}
+          onOpenChange={setPdfViewerOpen}
+          pdfUrl={selectedDocumentUrl}
+          title={selectedDocumentTitle}
+        />
+      </div>
     </ErrorBoundary>
   );
 }

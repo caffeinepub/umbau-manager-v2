@@ -1,13 +1,17 @@
 # Specification
 
 ## Summary
-**Goal:** Restore end-to-end functionality on the Contacts page so users can successfully create new contacts and helpful links, with results persisted and shown immediately.
+**Goal:** Implement a welcome screen with invite code system that allows users to either create a new family (as admin) or join an existing family using a one-time invite code.
 
 **Planned changes:**
-- Fix the Contacts page “New contact” submission flow to persist a new contact for the logged-in user in the backend and return it via the existing contacts list query.
-- After successful contact creation, invalidate/refetch the contacts React Query cache so the new contact appears immediately without a manual reload.
-- Fix the Contacts page “New link” submission flow to persist a new link for the logged-in user in the backend and return it via the existing links list query.
-- After successful link creation, invalidate/refetch the links React Query cache so the new link appears immediately without a manual reload.
-- Preserve existing required-field validation behavior and avoid any unrelated UI/feature changes outside what’s necessary to restore these two create flows.
+- Create backend invite code generation and validation functions with Map-based storage
+- Implement one-time use invite codes that auto-delete after use
+- Export all invite-related actor methods to fix 'Actor not available' error
+- Create welcome screen with app icon at top and centered layout
+- Add 'Create a New Family' button (green/primary) that makes user the admin/owner
+- Add 'Join Existing Family' button (gray/secondary) with invite code input dialog
+- Add 'or' text divider between the two action buttons
+- Add logout link at bottom of welcome screen
+- Show welcome screen to authenticated users who haven't joined or created a family
 
-**User-visible outcome:** On the Contacts page, the user can create a new contact and a new helpful link without console errors, and each newly created item appears right away in its corresponding list and remains available after refresh/login.
+**User-visible outcome:** After login, users see a welcome screen where they can either create a new family (becoming the admin) or join an existing family by entering an invite code. The invite codes work as one-time use codes that disappear after being used.

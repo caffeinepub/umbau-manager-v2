@@ -57,6 +57,13 @@ export interface HelpfulLink {
   'kategorie' : string,
   'beschreibung' : string,
 }
+export interface InviteCode {
+  'created' : Time,
+  'code' : string,
+  'used' : boolean,
+}
+export interface InviteCode__1 { 'code' : string, 'role' : UserRole }
+export type InviteToken = string;
 export interface KostenUebersicht {
   'offen' : number,
   'gesamt' : number,
@@ -97,6 +104,12 @@ export interface Project {
   'startDate' : [] | [Time],
 }
 export type ProjectId = string;
+export interface RSVP {
+  'name' : string,
+  'inviteCode' : string,
+  'timestamp' : Time,
+  'attending' : boolean,
+}
 export interface Task {
   'id' : TaskId,
   'status' : string,
@@ -112,6 +125,7 @@ export interface Task {
   'gewerke' : string,
 }
 export type TaskId = string;
+export interface TeamMember { 'principal' : Principal, 'role' : UserRole }
 export type Time = bigint;
 export interface UserProfile {
   'userType' : UserType,
@@ -157,6 +171,7 @@ export interface _SERVICE {
     [Array<MediaPositionUpdate>],
     undefined
   >,
+  'claimInviteToken' : ActorMethod<[InviteToken], undefined>,
   'createContact' : ActorMethod<
     [
       ContactId,
@@ -175,6 +190,8 @@ export interface _SERVICE {
     [LinkId, string, string, string, string, string],
     undefined
   >,
+  'createInvite' : ActorMethod<[string, UserRole], undefined>,
+  'createInviteToken' : ActorMethod<[UserRole], InviteToken>,
   'createProjekt' : ActorMethod<
     [
       ProjectId,
@@ -213,15 +230,19 @@ export interface _SERVICE {
   'deleteTask' : ActorMethod<[TaskId], undefined>,
   'deleteUserMedia' : ActorMethod<[string], undefined>,
   'filterProjectsByUserType' : ActorMethod<[UserType], Array<Project>>,
+  'generateInviteCode' : ActorMethod<[], string>,
   'getAllContacts' : ActorMethod<[], Array<Contact>>,
   'getAllHelpfulLinks' : ActorMethod<[], Array<HelpfulLink>>,
   'getAllKostenpunkte' : ActorMethod<[], Array<CostItem>>,
   'getAllProjects' : ActorMethod<[], Array<Project>>,
+  'getAllRSVPs' : ActorMethod<[], Array<RSVP>>,
   'getAllTasks' : ActorMethod<[], Array<Task>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getContact' : ActorMethod<[ContactId], Contact>,
   'getHelpfulLink' : ActorMethod<[LinkId], HelpfulLink>,
+  'getInviteCode' : ActorMethod<[string], [] | [InviteCode__1]>,
+  'getInviteCodes' : ActorMethod<[], Array<InviteCode>>,
   'getKostenUebersicht' : ActorMethod<[[] | [ProjectId]], KostenUebersicht>,
   'getKostenpunkteByProjekt' : ActorMethod<[ProjectId], Array<CostItem>>,
   'getProjekt' : ActorMethod<[ProjectId], Project>,
@@ -231,7 +252,10 @@ export interface _SERVICE {
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'initializeAccessControl' : ActorMethod<[], undefined>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'listTeamMembers' : ActorMethod<[], Array<TeamMember>>,
+  'removeTeamMember' : ActorMethod<[Principal], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'submitRSVP' : ActorMethod<[string, boolean, string], undefined>,
   'updateContact' : ActorMethod<
     [
       ContactId,
@@ -285,6 +309,7 @@ export interface _SERVICE {
     ],
     undefined
   >,
+  'updateTeamMemberRole' : ActorMethod<[Principal, UserRole], undefined>,
   'uploadDocumentWithPDF' : ActorMethod<
     [string, string, Bereich, string, string, ExternalBlob],
     undefined
@@ -293,6 +318,7 @@ export interface _SERVICE {
     [string, string, string, string, bigint, Array<string>, ExternalBlob],
     undefined
   >,
+  'validateInviteCode' : ActorMethod<[string], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

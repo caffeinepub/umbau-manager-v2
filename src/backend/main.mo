@@ -9,9 +9,9 @@ import Principal "mo:core/Principal";
 import AccessControl "authorization/access-control";
 import Storage "blob-storage/Storage";
 import MixinStorage "blob-storage/Mixin";
-import Migration "migration";
+import InviteLinksModule "invite-links/invite-links-module";
+import Random "mo:core/Random";
 
-(with migration = Migration.run)
 actor {
   include MixinStorage();
 
@@ -128,6 +128,19 @@ actor {
     dokumentId : ?DocumentId;
     owner : Principal;
   };
+
+  public type InviteToken = Text;
+  public type TeamMember = {
+    principal : Principal;
+    role : AccessControl.UserRole;
+  };
+
+  // Added InviteCode to store invite code data
+  public type InviteCode = {
+    code : Text;
+    role : AccessControl.UserRole;
+  };
+
   var projects = Map.empty<Principal, Map.Map<ProjectId, Project>>();
   var tasks = Map.empty<Principal, Map.Map<TaskId, Task>>();
   var documents = Map.empty<Principal, Map.Map<DocumentId, Document>>();
@@ -138,6 +151,13 @@ actor {
   var userProfiles = Map.empty<Principal, UserProfile>();
   var customCategoriesStore = Map.empty<Principal, Map.Map<TextValue, Map.Map<TextValue, TextValue>>>();
   var costItems = Map.empty<Principal, Map.Map<ProjectId, [CostItem]>>();
+  var inviteTokens = Map.empty<InviteToken, ?AccessControl.UserRole>();
+  var teamMembers = Map.empty<Principal, AccessControl.UserRole>();
+  let inviteState = InviteLinksModule.initState();
+
+  // Added codesMap to store invite codes
+  var codesMap = Map.empty<Text, InviteCode>();
+
   func getUserData<T>(user : Principal, map : Map.Map<Principal, Map.Map<Text, T>>) : Map.Map<Text, T> {
     switch (map.get(user)) {
       case (null) {
@@ -196,6 +216,7 @@ actor {
       case (?userMap) { userMap };
     };
   };
+
   public shared ({ caller }) func createTask(
     id : TaskId,
     titel : Text,
@@ -232,6 +253,7 @@ actor {
     };
     userTasks.add(id, task);
   };
+
   public shared ({ caller }) func createContact(
     id : ContactId,
     name : Text,
@@ -264,6 +286,7 @@ actor {
     };
     userContacts.add(id, contact);
   };
+
   public shared ({ caller }) func createHelpfulLink(
     id : LinkId,
     titel : Text,
@@ -290,6 +313,7 @@ actor {
     };
     userLinks.add(id, link);
   };
+
   public query ({ caller }) func getTask(taskId : TaskId) : async Task {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view tasks");
@@ -307,6 +331,7 @@ actor {
       };
     };
   };
+
   public query ({ caller }) func getContact(contactId : ContactId) : async Contact {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view contacts");
@@ -324,6 +349,7 @@ actor {
       };
     };
   };
+
   public query ({ caller }) func getHelpfulLink(linkId : LinkId) : async HelpfulLink {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view links");
@@ -341,24 +367,28 @@ actor {
       };
     };
   };
+
   public query ({ caller }) func getAllTasks() : async [Task] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view tasks");
     };
     getUserTasks(caller).values().toArray();
   };
+
   public query ({ caller }) func getAllContacts() : async [Contact] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view contacts");
     };
     getUserContacts(caller).values().toArray();
   };
+
   public query ({ caller }) func getAllHelpfulLinks() : async [HelpfulLink] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view links");
     };
     getUserLinks(caller).values().toArray();
   };
+
   public shared ({ caller }) func updateTask(
     id : TaskId,
     titel : Text,
@@ -402,6 +432,7 @@ actor {
       };
     };
   };
+
   public shared ({ caller }) func updateContact(
     id : ContactId,
     name : Text,
@@ -441,6 +472,7 @@ actor {
       };
     };
   };
+
   public shared ({ caller }) func updateHelpfulLink(
     id : LinkId,
     titel : Text,
@@ -472,6 +504,7 @@ actor {
       };
     };
   };
+
   public shared ({ caller }) func deleteTask(taskId : TaskId) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can delete tasks");
@@ -489,6 +522,7 @@ actor {
       };
     };
   };
+
   public shared ({ caller }) func deleteContact(contactId : ContactId) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can delete contacts");
@@ -504,6 +538,7 @@ actor {
       };
     };
   };
+
   public shared ({ caller }) func deleteHelpfulLink(linkId : LinkId) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can delete links");
@@ -519,36 +554,44 @@ actor {
       };
     };
   };
+
   public shared ({ caller }) func initializeAccessControl() : async () {
     AccessControl.initialize(accessControlState, caller);
   };
+
   public query ({ caller }) func getCallerUserRole() : async AccessControl.UserRole {
     AccessControl.getUserRole(accessControlState, caller);
   };
+
   public shared ({ caller }) func assignCallerUserRole(user : Principal, role : AccessControl.UserRole) : async () {
     AccessControl.assignRole(accessControlState, caller, user, role);
   };
+
   public query ({ caller }) func isCallerAdmin() : async Bool {
     AccessControl.isAdmin(accessControlState, caller);
   };
+
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can access profiles");
     };
     userProfiles.get(caller);
   };
+
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
     if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
       Run.trap("Unauthorized: Can only view your own profile");
     };
     userProfiles.get(user);
   };
+
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can save profiles");
     };
     userProfiles.add(caller, profile);
   };
+
   public shared ({ caller }) func uploadMedia(
     id : Text,
     name : Text,
@@ -577,6 +620,7 @@ actor {
     };
     userMedia.add(id, mediaItem);
   };
+
   public shared ({ caller }) func bulkUpdateMediaPositions(updates : [MediaPositionUpdate]) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can update media positions");
@@ -595,6 +639,7 @@ actor {
       };
     };
   };
+
   public shared ({ caller }) func deleteUserMedia(mediaId : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can delete media");
@@ -612,6 +657,7 @@ actor {
       };
     };
   };
+
   public shared ({ caller }) func updateMedia(id : Text, updates : MediaUpdate) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can update media");
@@ -637,6 +683,7 @@ actor {
       };
     };
   };
+
   public shared ({ caller }) func uploadDocumentWithPDF(
     id : Text,
     name : Text,
@@ -663,6 +710,7 @@ actor {
     };
     userDocuments.add(id, document);
   };
+
   public shared ({ caller }) func deleteDocument(documentId : DocumentId) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can delete documents");
@@ -680,6 +728,7 @@ actor {
       };
     };
   };
+
   public shared ({ caller }) func createProjekt(
     id : ProjectId,
     name : Text,
@@ -738,6 +787,7 @@ actor {
     });
     userCostItems.add(id, validatedCostItems);
   };
+
   public query ({ caller }) func getProjekt(id : ProjectId) : async Project {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view projects");
@@ -755,12 +805,14 @@ actor {
       };
     };
   };
+
   public query ({ caller }) func getAllProjects() : async [Project] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view projects");
     };
     getUserProjects(caller).values().toArray();
   };
+
   public shared ({ caller }) func updateProjekt(
     id : ProjectId,
     name : Text,
@@ -826,6 +878,7 @@ actor {
       };
     };
   };
+
   public shared ({ caller }) func deleteProjekt(id : ProjectId) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can delete projects");
@@ -845,6 +898,7 @@ actor {
       };
     };
   };
+
   public shared ({ caller }) func addKostenpunkt(projectId : ProjectId, kost : CostItem) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can add cost items");
@@ -868,6 +922,7 @@ actor {
       };
     };
   };
+
   public shared ({ caller }) func updateKostenpunkt(
     projectId : ProjectId,
     kostId : CostItemId,
@@ -911,6 +966,7 @@ actor {
       };
     };
   };
+
   public shared ({ caller }) func deleteKostenpunkt(projectId : ProjectId, kostenpunktId : CostItemId) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can delete cost items");
@@ -950,6 +1006,7 @@ actor {
       };
     };
   };
+
   public query ({ caller }) func getKostenpunkteByProjekt(projectId : ProjectId) : async [CostItem] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view cost items");
@@ -971,6 +1028,7 @@ actor {
       };
     };
   };
+
   public query ({ caller }) func getAllKostenpunkte() : async [CostItem] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view cost items");
@@ -980,11 +1038,13 @@ actor {
     let result = allCostArrays.flatten();
     result;
   };
+
   public type KostenUebersicht = {
     gesamt : Float;
     bezahlt : Float;
     offen : Float;
   };
+
   public query ({ caller }) func getKostenUebersicht(projektId : ?ProjectId) : async KostenUebersicht {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view costs summary");
@@ -1041,6 +1101,7 @@ actor {
       };
     };
   };
+
   public query ({ caller }) func filterProjectsByUserType(userType : UserType) : async [Project] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can filter projects");
@@ -1056,16 +1117,145 @@ actor {
       case (null) { [] };
     };
   };
+
   public query ({ caller }) func getUserMedia() : async [Media] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view media");
     };
     getUserMediaInternal(caller).values().toArray();
   };
+
   public query ({ caller }) func getUserDocuments() : async [Document] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view documents");
     };
     getUserDocumentsInternal(caller).values().toArray();
+  };
+
+  public shared ({ caller }) func createInviteToken(role : AccessControl.UserRole) : async InviteToken {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Run.trap("Unauthorized: Only admins can create invite tokens");
+    };
+    let token = createRandomToken();
+    inviteTokens.add(token, ?role);
+    token;
+  };
+
+  public shared ({ caller }) func claimInviteToken(token : InviteToken) : async () {
+    switch (inviteTokens.get(token)) {
+      case (null) {
+        Run.trap("Invalid or expired token");
+      };
+      case (?roleOpt) {
+        switch (roleOpt) {
+          case (null) {
+            Run.trap("Token already used");
+          };
+          case (?role) {
+            AccessControl.assignRole(accessControlState, caller, caller, role);
+            teamMembers.add(caller, role);
+            inviteTokens.add(token, null);
+          };
+        };
+      };
+    };
+  };
+
+  public query ({ caller }) func listTeamMembers() : async [TeamMember] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Run.trap("Unauthorized: Only admins can view team members");
+    };
+    let members = teamMembers.entries().toArray();
+    members.map(func((principal, role)) : TeamMember {
+      { principal = principal; role = role };
+    });
+  };
+
+  public shared ({ caller }) func updateTeamMemberRole(principal : Principal, role : AccessControl.UserRole) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Run.trap("Unauthorized: Only admins can update team member roles");
+    };
+    AccessControl.assignRole(accessControlState, caller, principal, role);
+    teamMembers.add(principal, role);
+  };
+
+  public shared ({ caller }) func removeTeamMember(principal : Principal) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Run.trap("Unauthorized: Only admins can remove team members");
+    };
+    teamMembers.remove(principal);
+  };
+
+  func createRandomToken() : Text {
+    let timestamp = Time.now();
+    "token_" # timestamp.toText();
+  };
+
+  // Missing functions for invite links module
+  public shared ({ caller }) func generateInviteCode() : async Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Run.trap("Unauthorized: Only admins can generate invite codes");
+    };
+    let blob = await Random.blob();
+    let code = InviteLinksModule.generateUUID(blob);
+    InviteLinksModule.generateInviteCode(inviteState, code);
+    code;
+  };
+
+  public shared func submitRSVP(name : Text, attending : Bool, inviteCode : Text) : async () {
+    InviteLinksModule.submitRSVP(inviteState, name, attending, inviteCode);
+  };
+
+  public query ({ caller }) func getAllRSVPs() : async [InviteLinksModule.RSVP] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Run.trap("Unauthorized: Only admins can view RSVPs");
+    };
+    InviteLinksModule.getAllRSVPs(inviteState);
+  };
+
+  public query ({ caller }) func getInviteCodes() : async [InviteLinksModule.InviteCode] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Run.trap("Unauthorized: Only admins can view invite codes");
+    };
+    InviteLinksModule.getInviteCodes(inviteState);
+  };
+
+  // New invite function: generate and store code "server side"
+  public shared ({ caller }) func createInvite(
+    generatedCode : Text,
+    role : AccessControl.UserRole,
+  ) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Run.trap("Unauthorized: Only admins can generate invite codes");
+    };
+    if (codesMap.containsKey(generatedCode)) {
+      Run.trap("Invite code already exists");
+    };
+    let code = { code = generatedCode; role };
+    codesMap.add(generatedCode, code);
+  };
+
+  // New validation function: check, consume code, and assign role to caller
+  public shared ({ caller }) func validateInviteCode(generatedCode : Text) : async () {
+    switch (codesMap.get(generatedCode)) {
+      case (null) {
+        Run.trap("Invalid or expired code");
+      };
+      case (?code) {
+        // Remove code after use (one-time use)
+        codesMap.remove(generatedCode);
+        // Assign the role to the caller
+        AccessControl.assignRole(accessControlState, caller, caller, code.role);
+        teamMembers.add(caller, code.role);
+      };
+    };
+  };
+
+  // Admin-only query to check invite code details
+  public query ({ caller }) func getInviteCode(generatedCode : Text) : async ?InviteCode {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Run.trap("Unauthorized: Only admins can view invite code details");
+    };
+    codesMap.get(generatedCode);
   };
 };

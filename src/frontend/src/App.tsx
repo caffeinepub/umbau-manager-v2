@@ -34,10 +34,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
 import { useInternetIdentity } from './hooks/useInternetIdentity';
-import { useGetCallerUserProfile } from './hooks/useQueries';
+import { useGetCallerUserProfile, useHasTeamAssociation } from './hooks/useQueries';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { getUrlParameter } from './utils/urlParams';
 import LoginPage from './pages/LoginPage';
 import ProfileSetupModal from './components/ProfileSetupModal';
+import WelcomeScreen from './pages/WelcomeScreen';
 import AppLayout from './components/AppLayout';
 import Dashboard from './pages/Dashboard';
 import Roadmap from './pages/Roadmap';
@@ -46,6 +48,7 @@ import Documents from './pages/Documents';
 import Media from './pages/Media';
 import Contacts from './pages/Contacts';
 import Kostenuebersicht from './pages/Kostenuebersicht';
+import ApplyInvite from './pages/ApplyInvite';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,10 +68,21 @@ type Page = 'dashboard' | 'roadmap' | 'tasks' | 'documents' | 'media' | 'contact
 function AppContent() {
   const { identity, isInitializing } = useInternetIdentity();
   const { data: userProfile, isLoading: profileLoading, isFetched } = useGetCallerUserProfile();
+  const { data: hasTeam, isLoading: teamCheckLoading, isFetched: teamCheckFetched } = useHasTeamAssociation();
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const [hasInviteToken, setHasInviteToken] = useState(false);
 
   const isAuthenticated = !!identity;
   const showProfileSetup = isAuthenticated && !profileLoading && isFetched && userProfile === null;
+  const showWelcomeScreen = isAuthenticated && !profileLoading && isFetched && userProfile !== null && !teamCheckLoading && teamCheckFetched && !hasTeam;
+
+  // Check for invite token on mount
+  useEffect(() => {
+    const inviteToken = getUrlParameter('invite');
+    if (inviteToken) {
+      setHasInviteToken(true);
+    }
+  }, []);
 
   // Listen for navigation events from dashboard stat cards and calendar
   useEffect(() => {
@@ -82,6 +96,18 @@ function AppContent() {
     window.addEventListener('navigate', handleNavigate);
     return () => window.removeEventListener('navigate', handleNavigate);
   }, []);
+
+  // Handle invite flow
+  if (hasInviteToken) {
+    return (
+      <ApplyInvite
+        onSuccess={() => {
+          setHasInviteToken(false);
+          setCurrentPage('contacts');
+        }}
+      />
+    );
+  }
 
   if (isInitializing) {
     return (
@@ -100,6 +126,10 @@ function AppContent() {
 
   if (showProfileSetup) {
     return <ProfileSetupModal />;
+  }
+
+  if (showWelcomeScreen) {
+    return <WelcomeScreen />;
   }
 
   const renderPage = () => {

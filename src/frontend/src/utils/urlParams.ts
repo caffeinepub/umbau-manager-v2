@@ -99,6 +99,31 @@ export function clearSessionParameter(key: string): void {
 }
 
 /**
+ * Removes a specific parameter from the URL without reloading the page
+ * Works with both regular query strings and hash-based routing
+ *
+ * @param paramName - The parameter to remove
+ */
+export function clearUrlParameter(paramName: string): void {
+    if (!window.history.replaceState) {
+        return;
+    }
+
+    // Handle regular query string
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has(paramName)) {
+        urlParams.delete(paramName);
+        const newSearch = urlParams.toString();
+        const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
+        window.history.replaceState(null, '', newUrl);
+        return;
+    }
+
+    // Handle hash-based routing
+    clearParamFromHash(paramName);
+}
+
+/**
  * Removes a specific parameter from the URL hash without reloading the page
  * Preserves route information and other parameters in the hash
  * Used to remove sensitive data from the address bar after extracting it

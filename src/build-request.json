@@ -1,73 +1,194 @@
 {
   "kind": "build_request",
-  "title": "Restore Contacts page functionality: create contact and create link",
-  "priority": "high",
+  "title": "Implement Invite Code System with Welcome Screen",
+  "projectName": "FamilyHub",
+  "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Fix the end-to-end \"Create contact\" flow on the Contacts page so a newly created contact is persisted for the logged-in user and appears immediately in the contacts list after submission.",
-      "target": "both",
+      "text": "Create backend invite code generation function that generates unique one-time use invite codes and stores them in a Map with associated team/family information",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-1",
+          "msg-2",
+          "msg-3"
         ],
         "quotes": [
-          "baue die Kontakt page erstmal funktional wieder auf mit den besprochenen Punkten\n\nKontakt erstellen soll funktionieren"
+          "Invite‑Code‑Logik wie in der anderen App: Einmalig verwendbar, Map-Speicher, Code wird gelöscht nach Verwendung"
         ]
       },
       "acceptanceCriteria": [
-        "From frontend/src/pages/Contacts.tsx, submitting the \"New contact\" dialog successfully creates a new contact without throwing in the console.",
-        "The new contact is persisted in the backend (backend/main.mo) under the caller and is returned by the existing contacts list query after page refresh/login.",
-        "After successful creation, the contacts React Query cache is invalidated/refetched (frontend/src/hooks/useQueries.ts) and the new contact appears in the list without manual reload.",
-        "If required fields are missing, the form prevents submission and shows the existing validation feedback (no new UX changes)."
+        "Backend exports a createInviteCode function that generates a unique code",
+        "Invite codes are stored in a Map with team/family ID and role information",
+        "Each invite code can only be used once"
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Fix the end-to-end \"Create link\" flow on the Contacts page so a newly created helpful link is persisted for the logged-in user and appears immediately in the links list after submission.",
-      "target": "both",
+      "text": "Create backend invite code validation function that checks if a code exists, returns the associated team information, and deletes the code after successful use",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-1",
+          "msg-2"
         ],
         "quotes": [
-          "Link erstellen soll funktionieren"
+          "Code wird gelöscht nach Verwendung",
+          "Auto-delete codes after they're used"
         ]
       },
       "acceptanceCriteria": [
-        "From frontend/src/pages/Contacts.tsx, submitting the \"New link\" dialog successfully creates a new link without throwing in the console.",
-        "The new link is persisted in the backend (backend/main.mo) under the caller and is returned by the existing links list query after page refresh/login.",
-        "After successful creation, the links React Query cache is invalidated/refetched (frontend/src/hooks/useQueries.ts) and the new link appears in the list without manual reload.",
-        "If required fields are missing, the form prevents submission and shows the existing validation feedback (no new UX changes)."
+        "Backend exports a useInviteCode function that validates invite codes",
+        "Function returns team/family information if code is valid",
+        "Code is automatically deleted from Map after successful validation",
+        "Function returns error if code does not exist or has already been used"
       ]
     },
     {
       "id": "REQ-3",
-      "text": "Ensure no other app functionality or UI behavior is changed beyond what is required to restore \"Create contact\" and \"Create link\" on the Contacts page.",
-      "target": "both",
+      "text": "Export all invite-related backend actor methods to fix 'Actor not available' error",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-1",
+          "msg-2"
         ],
         "quotes": [
-          "Alles andere bleibt unverändert"
+          "Alle Actor-Methoden korrekt exportieren, um 'Actor not available' zu beheben",
+          "This error means the frontend calls an Actor function that does not exist or is not exported in the backend"
         ]
       },
       "acceptanceCriteria": [
-        "No changes are made to unrelated pages/components beyond what is strictly necessary to make contact/link creation work again.",
-        "Existing CRUD flows on other pages (e.g., tasks, documents, media, projects, costs) continue to function as before."
+        "All invite-related functions are properly exported as public actor methods",
+        "Frontend can successfully call createInviteCode and useInviteCode without 'Actor not available' errors"
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "Create welcome screen with app icon at top, centered layout similar to FamilyHub screenshot",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "Welcome screen with app icon/logo at top",
+          "Clean, centered layout similar to the FamilyHub screenshot"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Welcome screen displays app icon/logo at top center",
+        "Layout is clean and centered on the page",
+        "Visual design follows general pattern from uploaded FamilyHub screenshot"
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "text": "Add 'Create a New Family' button (green/primary style) that makes the user the admin/owner and initializes a new family/team",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1",
+          "msg-3"
+        ],
+        "quotes": [
+          "'Create a New Family' (green primary button) - makes user the admin/owner",
+          "Nutzer wird Admin/Owner"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Button is styled as primary action (green color)",
+        "Clicking button creates a new family/team with current user as admin/owner",
+        "User is redirected to main app after family creation"
+      ]
+    },
+    {
+      "id": "REQ-6",
+      "text": "Add 'Join Existing Family' button (gray/secondary style) that prompts user to enter an invite code",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1",
+          "msg-3"
+        ],
+        "quotes": [
+          "'Join Existing Family' (gray secondary button) - user enters invite code",
+          "Nutzer gibt Invite-Code ein"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Button is styled as secondary action (gray color)",
+        "Clicking button opens input dialog for entering invite code",
+        "After entering valid code, user joins the corresponding family/team",
+        "User is redirected to main app after successful join"
+      ]
+    },
+    {
+      "id": "REQ-7",
+      "text": "Add 'or' text divider between the two main action buttons on welcome screen",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "'or' divider between buttons"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Text 'or' appears centered between the two main buttons",
+        "Divider is visually subtle but clearly separates the two options"
+      ]
+    },
+    {
+      "id": "REQ-8",
+      "text": "Add logout link at bottom of welcome screen for users who want to switch identities",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "Optional logout link at bottom"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Logout link appears at bottom of welcome screen",
+        "Clicking logout logs user out via Internet Identity",
+        "User returns to login page after logout"
+      ]
+    },
+    {
+      "id": "REQ-9",
+      "text": "Show welcome screen to authenticated users who have not yet joined or created a family/team",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1",
+          "msg-2"
+        ],
+        "quotes": [
+          "Neuer Startscreen wie im zweiten Screenshot: 'Neues Projekt erstellen' oder 'Bestehendem Projekt beitreten'"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Welcome screen is shown after login if user has no family/team association",
+        "Users who have already joined or created a family see the main app instead",
+        "Screen properly handles authentication state"
       ]
     }
   ],
   "constraints": [
-    "Do not introduce new features on the Contacts page beyond restoring contact creation and link creation.",
-    "Keep the architecture as a single Motoko actor in backend/main.mo.",
-    "Do not modify any files under frontend/src/components/ui or any paths listed as frontend immutable paths in SYSTEM_CONTEXT."
+    "All Motoko logic must remain in the single main actor file (backend/main.mo)",
+    "Do not modify immutable frontend paths: useInternetIdentity.ts, useInternetIdentity.tsx, useActor.ts, main.tsx, components/ui",
+    "Use existing Internet Identity authentication system"
   ],
   "nonGoals": [
-    "Adding contact editing/deletion improvements beyond what already exists in the UI.",
-    "Adding new contact-page features such as tags, notes enhancements, activity history, or project linking (unless required strictly to restore create flows).",
-    "Any redesign or refactor of the Contacts page layout/styling unrelated to the two broken create flows."
+    "Multi-actor backend architecture",
+    "Changes to authentication system beyond logout flow",
+    "Exact pixel-perfect match to FamilyHub screenshot",
+    "Advanced invite code features (expiration, role limits)"
   ],
   "imageRequirements": {
     "required": [],

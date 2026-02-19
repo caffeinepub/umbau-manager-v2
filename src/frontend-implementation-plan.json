@@ -1,69 +1,126 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Restore Contacts page create flows (contacts + helpful links)",
+  "title": "Implement Invite Code System with Welcome Screen",
   "requirements": [
     {
-      "id": "REQ-1",
-      "summary": "Restore the Contacts page “Create contact” flow by wiring the contact create mutation and contacts list query to the backend actor and ensuring the list refreshes immediately.",
+      "id": "REQ-4",
+      "summary": "Create welcome screen with app icon at top and centered layout",
       "acceptanceCriteria": [
-        "From frontend/src/pages/Contacts.tsx, submitting the \"New contact\" dialog successfully creates a new contact without throwing in the console.",
-        "The new contact is persisted in the backend (backend/main.mo) under the caller and is returned by the existing contacts list query after page refresh/login.",
-        "After successful creation, the contacts React Query cache is invalidated/refetched (frontend/src/hooks/useQueries.ts) and the new contact appears in the list without manual reload.",
-        "If required fields are missing, the form prevents submission and shows the existing validation feedback (no new UX changes)."
+        "Welcome screen displays app icon/logo at top center",
+        "Layout is clean and centered on the page",
+        "Visual design follows general pattern from uploaded FamilyHub screenshot"
       ],
       "file_operations": [
         {
-          "path": "frontend/src/hooks/useQueries.ts",
-          "operation": "modify",
-          "description": "Replace the stubbed Contact hooks with real implementations backed by the actor: enable useGetAllContacts to call the actor contact-list capability when available; implement useCreateContact to call the actor contact-create capability (ensuring required backend parameters like linked task/document arrays are supplied with existing UI defaults, e.g., empty arrays); keep onSuccess invalidation for the ['contacts'] queryKey so the list refetches immediately."
+          "path": "frontend/src/pages/WelcomeScreen.tsx",
+          "operation": "create",
+          "description": "Create a new welcome screen page component with centered layout, app icon at top (green rounded square with house icon similar to FamilyHub screenshot), welcome message 'Welcome to FamilyHub', and descriptive text explaining the two main actions. Use Tailwind CSS for styling with a clean, centered card-based layout matching the FamilyHub design pattern."
         },
         {
-          "path": "frontend/src/pages/Contacts.tsx",
+          "path": "frontend/src/App.tsx",
           "operation": "modify",
-          "description": "Ensure the submit handler payload matches the updated useCreateContact/useUpdateContact contract (no UI redesign): keep existing validation/toasts; if needed, pass/derive any required fields (e.g., ensure empty strings/arrays are provided via the hook or call-site) so the mutation does not throw and the dialog closes on success."
+          "description": "Add routing logic to show WelcomeScreen for authenticated users who have no family/team association. Check user profile after login to determine if they need to see the welcome screen or proceed directly to the main app. Verify the component's usage instructions before implementing."
         }
       ]
     },
     {
-      "id": "REQ-2",
-      "summary": "Restore the Contacts page “Create link” flow by wiring the helpful-link create mutation and links list query to the backend actor and ensuring the list refreshes immediately.",
+      "id": "REQ-5",
+      "summary": "Add 'Create a New Family' button that makes user admin/owner",
       "acceptanceCriteria": [
-        "From frontend/src/pages/Contacts.tsx, submitting the \"New link\" dialog successfully creates a new link without throwing in the console.",
-        "The new link is persisted in the backend (backend/main.mo) under the caller and is returned by the existing links list query after page refresh/login.",
-        "After successful creation, the links React Query cache is invalidated/refetched (frontend/src/hooks/useQueries.ts) and the new link appears in the list without manual reload.",
-        "If required fields are missing, the form prevents submission and shows the existing validation feedback (no new UX changes)."
+        "Button is styled as primary action (green color)",
+        "Clicking button creates a new family/team with current user as admin/owner",
+        "User is redirected to main app after family creation"
       ],
       "file_operations": [
         {
-          "path": "frontend/src/hooks/useQueries.ts",
+          "path": "frontend/src/pages/WelcomeScreen.tsx",
           "operation": "modify",
-          "description": "Replace the stubbed Helpful Link hooks with real implementations backed by the actor: enable useGetAllLinks (or equivalent) to call the actor helpful-links list capability; implement useCreateLink to call the actor helpful-link create capability using the existing form fields; ensure onSuccess invalidation for the ['links'] (or the existing links queryKey used in the file) so the list refetches immediately."
+          "description": "Add a primary green button labeled 'Create a New Family' with subtitle 'Start fresh as the family admin' and a plus icon. Style it prominently as the primary action with hover states. Wire the button to trigger family creation flow using the authorization component's role assignment capabilities."
         },
         {
-          "path": "frontend/src/pages/Contacts.tsx",
+          "path": "frontend/src/hooks/useQueries.ts",
           "operation": "modify",
-          "description": "Ensure the “New link” submit handler aligns with the updated useCreateLink/useUpdateLink contract while preserving existing validation/toasts and UI behavior; confirm the mutation success path closes the dialog and clears the form as it currently does."
+          "description": "Add a useCreateFamily mutation hook that calls backend capability to initialize a new family/team and assign the current user as admin. Include success callback to redirect user to the main Dashboard page. Handle error states appropriately."
         }
       ]
     },
     {
-      "id": "REQ-3",
-      "summary": "Limit changes strictly to restoring create-contact and create-link functionality on the Contacts page without altering unrelated UI or flows.",
+      "id": "REQ-6",
+      "summary": "Add 'Join Existing Family' button that prompts for invite code",
       "acceptanceCriteria": [
-        "No changes are made to unrelated pages/components beyond what is strictly necessary to make contact/link creation work again.",
-        "Existing CRUD flows on other pages (e.g., tasks, documents, media, projects, costs) continue to function as before."
+        "Button is styled as secondary action (gray color)",
+        "Clicking button opens input dialog for entering invite code",
+        "After entering valid code, user joins the corresponding family/team",
+        "User is redirected to main app after successful join"
       ],
       "file_operations": [
         {
-          "path": "frontend/src/hooks/useQueries.ts",
+          "path": "frontend/src/pages/WelcomeScreen.tsx",
           "operation": "modify",
-          "description": "Scope modifications exclusively to the Contacts/Links-related hooks (queries + mutations + cache invalidation) and avoid refactoring or changing behavior of other feature hooks (tasks, projects, media, documents, costs)."
+          "description": "Add a secondary gray/neutral button labeled 'Join Existing Family' with subtitle 'Use an invite code from your family' and a link icon. Style it as a secondary action. Wire it to open a dialog component for invite code entry. Use the invite-links component to support validation and code redemption functionality. Verify the component's usage instructions before implementing."
         },
         {
-          "path": "frontend/src/pages/Contacts.tsx",
+          "path": "frontend/src/components/JoinFamilyDialog.tsx",
+          "operation": "create",
+          "description": "Create a dialog component with an input field for entering the invite code, submit button, cancel button, loading states, and error message display. Use BaseDialog for consistent styling. Include form validation and handle backend validation errors gracefully. Use the invite-links component for code validation. Verify the component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
           "operation": "modify",
-          "description": "Keep Contacts page UI/behavior unchanged except where strictly necessary to make the two create flows succeed (no new features, no layout/styling changes, keep existing validation feedback and dialogs)."
+          "description": "Add a useJoinFamily mutation hook that calls backend capability to validate and use the invite code, then assign the user to the appropriate family/team with the role specified in the invite. Include success callback to redirect to Dashboard. Handle 'code not found' and 'code already used' errors with user-friendly messages."
+        }
+      ]
+    },
+    {
+      "id": "REQ-7",
+      "summary": "Add 'or' text divider between the two main action buttons",
+      "acceptanceCriteria": [
+        "Text 'or' appears centered between the two main buttons",
+        "Divider is visually subtle but clearly separates the two options"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/WelcomeScreen.tsx",
+          "operation": "modify",
+          "description": "Add a centered text divider displaying 'or' between the 'Create a New Family' and 'Join Existing Family' buttons. Style it with subtle gray color and appropriate spacing to visually separate the two primary actions, matching the FamilyHub screenshot design."
+        }
+      ]
+    },
+    {
+      "id": "REQ-8",
+      "summary": "Add logout link at bottom of welcome screen",
+      "acceptanceCriteria": [
+        "Logout link appears at bottom of welcome screen",
+        "Clicking logout logs user out via Internet Identity",
+        "User returns to login page after logout"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/WelcomeScreen.tsx",
+          "operation": "modify",
+          "description": "Add a logout link at the bottom of the welcome screen with an icon (arrow-right-from-bracket or similar) and text 'Log out'. Use the useInternetIdentity hook's clear function to handle logout and clear all cached data via queryClient.clear(). Style it as a subtle text link with hover state."
+        }
+      ]
+    },
+    {
+      "id": "REQ-9",
+      "summary": "Show welcome screen to users without family/team association",
+      "acceptanceCriteria": [
+        "Welcome screen is shown after login if user has no family/team association",
+        "Users who have already joined or created a family see the main app instead",
+        "Screen properly handles authentication state"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Add conditional routing logic that checks if authenticated user has a family/team association (via user profile or dedicated backend capability). If no association exists, render WelcomeScreen. If association exists, render the normal app layout with AppLayout and routes. Handle loading states to prevent flickering between screens. Use the authorization component to check user role and team membership status. Verify the component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Add a useHasFamilyAssociation query hook that fetches whether the current user is associated with any family/team. This could check if the user has a team role assigned or if their profile indicates family membership. Enable the query only when user is authenticated. Return loading, error, and data states for use in App.tsx conditional rendering."
         }
       ]
     }

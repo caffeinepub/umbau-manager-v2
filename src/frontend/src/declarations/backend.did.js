@@ -45,6 +45,7 @@ export const MediaPositionUpdate = IDL.Record({
   'newPosition' : IDL.Int,
   'mediaId' : MediaId,
 });
+export const InviteToken = IDL.Text;
 export const ContactId = IDL.Text;
 export const TaskId = IDL.Text;
 export const LinkId = IDL.Text;
@@ -85,6 +86,12 @@ export const HelpfulLink = IDL.Record({
   'kategorie' : IDL.Text,
   'beschreibung' : IDL.Text,
 });
+export const RSVP = IDL.Record({
+  'name' : IDL.Text,
+  'inviteCode' : IDL.Text,
+  'timestamp' : Time,
+  'attending' : IDL.Bool,
+});
 export const Task = IDL.Record({
   'id' : TaskId,
   'status' : IDL.Text,
@@ -104,6 +111,15 @@ export const UserProfile = IDL.Record({
   'name' : IDL.Text,
   'role' : IDL.Text,
   'email' : IDL.Text,
+});
+export const InviteCode__1 = IDL.Record({
+  'code' : IDL.Text,
+  'role' : UserRole,
+});
+export const InviteCode = IDL.Record({
+  'created' : Time,
+  'code' : IDL.Text,
+  'used' : IDL.Bool,
 });
 export const KostenUebersicht = IDL.Record({
   'offen' : IDL.Float64,
@@ -129,6 +145,10 @@ export const Media = IDL.Record({
   'tags' : IDL.Vec(IDL.Text),
   'kategorie' : IDL.Text,
   'position' : IDL.Int,
+});
+export const TeamMember = IDL.Record({
+  'principal' : IDL.Principal,
+  'role' : UserRole,
 });
 export const MediaUpdate = IDL.Record({
   'typ' : IDL.Opt(IDL.Text),
@@ -168,6 +188,7 @@ export const idlService = IDL.Service({
   'addKostenpunkt' : IDL.Func([ProjectId, CostItem], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'bulkUpdateMediaPositions' : IDL.Func([IDL.Vec(MediaPositionUpdate)], [], []),
+  'claimInviteToken' : IDL.Func([InviteToken], [], []),
   'createContact' : IDL.Func(
       [
         ContactId,
@@ -188,6 +209,8 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'createInvite' : IDL.Func([IDL.Text, UserRole], [], []),
+  'createInviteToken' : IDL.Func([UserRole], [InviteToken], []),
   'createProjekt' : IDL.Func(
       [
         ProjectId,
@@ -232,15 +255,19 @@ export const idlService = IDL.Service({
       [IDL.Vec(Project)],
       ['query'],
     ),
+  'generateInviteCode' : IDL.Func([], [IDL.Text], []),
   'getAllContacts' : IDL.Func([], [IDL.Vec(Contact)], ['query']),
   'getAllHelpfulLinks' : IDL.Func([], [IDL.Vec(HelpfulLink)], ['query']),
   'getAllKostenpunkte' : IDL.Func([], [IDL.Vec(CostItem)], ['query']),
   'getAllProjects' : IDL.Func([], [IDL.Vec(Project)], ['query']),
+  'getAllRSVPs' : IDL.Func([], [IDL.Vec(RSVP)], ['query']),
   'getAllTasks' : IDL.Func([], [IDL.Vec(Task)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getContact' : IDL.Func([ContactId], [Contact], ['query']),
   'getHelpfulLink' : IDL.Func([LinkId], [HelpfulLink], ['query']),
+  'getInviteCode' : IDL.Func([IDL.Text], [IDL.Opt(InviteCode__1)], ['query']),
+  'getInviteCodes' : IDL.Func([], [IDL.Vec(InviteCode)], ['query']),
   'getKostenUebersicht' : IDL.Func(
       [IDL.Opt(ProjectId)],
       [KostenUebersicht],
@@ -262,7 +289,10 @@ export const idlService = IDL.Service({
     ),
   'initializeAccessControl' : IDL.Func([], [], []),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'listTeamMembers' : IDL.Func([], [IDL.Vec(TeamMember)], ['query']),
+  'removeTeamMember' : IDL.Func([IDL.Principal], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'submitRSVP' : IDL.Func([IDL.Text, IDL.Bool, IDL.Text], [], []),
   'updateContact' : IDL.Func(
       [
         ContactId,
@@ -317,6 +347,7 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'updateTeamMemberRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'uploadDocumentWithPDF' : IDL.Func(
       [IDL.Text, IDL.Text, Bereich, IDL.Text, IDL.Text, ExternalBlob],
       [],
@@ -335,6 +366,7 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'validateInviteCode' : IDL.Func([IDL.Text], [], []),
 });
 
 export const idlInitArgs = [];
@@ -377,6 +409,7 @@ export const idlFactory = ({ IDL }) => {
     'newPosition' : IDL.Int,
     'mediaId' : MediaId,
   });
+  const InviteToken = IDL.Text;
   const ContactId = IDL.Text;
   const TaskId = IDL.Text;
   const LinkId = IDL.Text;
@@ -414,6 +447,12 @@ export const idlFactory = ({ IDL }) => {
     'kategorie' : IDL.Text,
     'beschreibung' : IDL.Text,
   });
+  const RSVP = IDL.Record({
+    'name' : IDL.Text,
+    'inviteCode' : IDL.Text,
+    'timestamp' : Time,
+    'attending' : IDL.Bool,
+  });
   const Task = IDL.Record({
     'id' : TaskId,
     'status' : IDL.Text,
@@ -433,6 +472,12 @@ export const idlFactory = ({ IDL }) => {
     'name' : IDL.Text,
     'role' : IDL.Text,
     'email' : IDL.Text,
+  });
+  const InviteCode__1 = IDL.Record({ 'code' : IDL.Text, 'role' : UserRole });
+  const InviteCode = IDL.Record({
+    'created' : Time,
+    'code' : IDL.Text,
+    'used' : IDL.Bool,
   });
   const KostenUebersicht = IDL.Record({
     'offen' : IDL.Float64,
@@ -458,6 +503,10 @@ export const idlFactory = ({ IDL }) => {
     'tags' : IDL.Vec(IDL.Text),
     'kategorie' : IDL.Text,
     'position' : IDL.Int,
+  });
+  const TeamMember = IDL.Record({
+    'principal' : IDL.Principal,
+    'role' : UserRole,
   });
   const MediaUpdate = IDL.Record({
     'typ' : IDL.Opt(IDL.Text),
@@ -501,6 +550,7 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'claimInviteToken' : IDL.Func([InviteToken], [], []),
     'createContact' : IDL.Func(
         [
           ContactId,
@@ -521,6 +571,8 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'createInvite' : IDL.Func([IDL.Text, UserRole], [], []),
+    'createInviteToken' : IDL.Func([UserRole], [InviteToken], []),
     'createProjekt' : IDL.Func(
         [
           ProjectId,
@@ -565,15 +617,19 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(Project)],
         ['query'],
       ),
+    'generateInviteCode' : IDL.Func([], [IDL.Text], []),
     'getAllContacts' : IDL.Func([], [IDL.Vec(Contact)], ['query']),
     'getAllHelpfulLinks' : IDL.Func([], [IDL.Vec(HelpfulLink)], ['query']),
     'getAllKostenpunkte' : IDL.Func([], [IDL.Vec(CostItem)], ['query']),
     'getAllProjects' : IDL.Func([], [IDL.Vec(Project)], ['query']),
+    'getAllRSVPs' : IDL.Func([], [IDL.Vec(RSVP)], ['query']),
     'getAllTasks' : IDL.Func([], [IDL.Vec(Task)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getContact' : IDL.Func([ContactId], [Contact], ['query']),
     'getHelpfulLink' : IDL.Func([LinkId], [HelpfulLink], ['query']),
+    'getInviteCode' : IDL.Func([IDL.Text], [IDL.Opt(InviteCode__1)], ['query']),
+    'getInviteCodes' : IDL.Func([], [IDL.Vec(InviteCode)], ['query']),
     'getKostenUebersicht' : IDL.Func(
         [IDL.Opt(ProjectId)],
         [KostenUebersicht],
@@ -595,7 +651,10 @@ export const idlFactory = ({ IDL }) => {
       ),
     'initializeAccessControl' : IDL.Func([], [], []),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'listTeamMembers' : IDL.Func([], [IDL.Vec(TeamMember)], ['query']),
+    'removeTeamMember' : IDL.Func([IDL.Principal], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'submitRSVP' : IDL.Func([IDL.Text, IDL.Bool, IDL.Text], [], []),
     'updateContact' : IDL.Func(
         [
           ContactId,
@@ -650,6 +709,7 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'updateTeamMemberRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'uploadDocumentWithPDF' : IDL.Func(
         [IDL.Text, IDL.Text, Bereich, IDL.Text, IDL.Text, ExternalBlob],
         [],
@@ -668,6 +728,7 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'validateInviteCode' : IDL.Func([IDL.Text], [], []),
   });
 };
 
