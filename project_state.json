@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 3,
+  "summary": "Umbau Manager project management app with project switching, navigation improvements, and session management",
+  "architectural_notes": [
+    "Project dropdown placed in topbar between title and user icon",
+    "LocalStorage used for persisting last active project",
+    "Welcome screen acts as entry point after authentication",
+    "Direct URL access bypasses welcome screen and loads last project"
+  ],
+  "known_issues": [
+    "User lands in wrong project after Internet Identity login",
+    "Missing navigation to switch between projects or return to project list"
+  ],
+  "isFixRequest": true,
+  "existing_features": [
+    {
+      "id": "feature-add-a-project-dropdown-component-in-the-black-marked-area-of-the-topbar-between-the-dashboard-title-and-the-u-user-icon-in-the-top-right-that-displays-the-name-of-the-currently-selected-project",
+      "title": "Add a project dropdown component in the black marked area of the topbar (between the 'Dashboard' title and the 'U' user icon in the top right) that displays the name of the currently selected project",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-when-the-project-dropdown-is-clicked-display-a-list-of-all-available-projects-for-the-current-user-plus-a-neues-projekt-erstellen-create-new-project-option-at-the-bottom",
+      "title": "When the project dropdown is clicked, display a list of all available projects for the current user plus a 'Neues Projekt erstellen' (Create New Project) option at the bottom",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-after-login-or-logout-navigate-the-user-to-the-welcomescreen-with-three-options-neues-projekt-erstellen-create-new-project-zu-bestehendem-projekt-zur-ckkehren-return-to-existing-project-and-bestehendes-projekt-joinen-join-existing-project",
+      "title": "After login or logout, navigate the user to the WelcomeScreen with three options: 'Neues Projekt erstellen' (Create New Project), 'Zu bestehendem Projekt zurückkehren' (Return to Existing Project), and 'Bestehendes Projekt joinen' (Join Existing Project)",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-when-accessing-the-app-directly-via-url-not-through-login-automatically-load-the-last-used-project-from-localstorage-and-navigate-to-that-project-s-dashboard",
+      "title": "When accessing the app directly via URL (not through login), automatically load the last used project from LocalStorage and navigate to that project's dashboard",
+      "reqIds": [
+        "REQ-4"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-session-management-that-stores-the-currently-selected-project-id-in-localstorage-whenever-a-user-switches-projects-or-selects-a-project",
+      "title": "Implement session management that stores the currently selected project ID in LocalStorage whenever a user switches projects or selects a project",
+      "reqIds": [
+        "REQ-5"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-proper-project-access-control-and-permission-checking-when-loading-projects-from-localstorage-or-switching-projects-via-the-dropdown",
+      "title": "Ensure proper project access control and permission checking when loading projects from LocalStorage or switching projects via the dropdown",
+      "reqIds": [
+        "REQ-6"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Project dropdown in topbar showing current project name with list of all projects and 'Create New Project' option",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Welcome screen after login/logout with 3 options: Create New Project, Return to Existing Project, Join Existing Project",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Auto-load last used project when accessing app directly via URL",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Session management with LocalStorage for last used project and proper permission checking",
+      "reqIds": [],
+      "status": "pending"
+    }
+  ],
+  "projectName": "Umbau Manager",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

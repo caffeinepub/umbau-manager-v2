@@ -1,0 +1,139 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Add project dropdown in topbar with navigation and session management",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "summary": "Add a project dropdown component in the topbar between the Dashboard title and user icon that displays the currently selected project name",
+      "acceptanceCriteria": [
+        "Dropdown is positioned in the topbar between the page title and user icon",
+        "Current project name is displayed in the dropdown trigger",
+        "Dropdown has appropriate styling consistent with the existing topbar design"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/ProjectDropdown.tsx",
+          "operation": "create",
+          "description": "Create a new ProjectDropdown component that displays the current project name in a Select trigger. Uses shadcn/ui Select component with consistent topbar styling. The component accepts currentProjectId prop and retrieves project details using the useQuery hook for getProjekt. Includes proper loading and error states."
+        },
+        {
+          "path": "frontend/src/components/AppLayout.tsx",
+          "operation": "modify",
+          "description": "Integrate the ProjectDropdown component into the header section between the page title and the user menu. Add the ProjectDropdown with appropriate spacing and styling to match the existing topbar design. Pass the currentProjectId from context or props to the ProjectDropdown component."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Display all user projects and a 'Neues Projekt erstellen' option in the project dropdown with navigation on selection",
+      "acceptanceCriteria": [
+        "All projects accessible to the user are listed in the dropdown",
+        "Each project entry shows the project name",
+        "A 'Neues Projekt erstellen' option appears at the bottom of the list",
+        "Clicking a project navigates to that project's dashboard",
+        "Clicking 'Neues Projekt erstellen' navigates to the Roadmap page to create a new project"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/ProjectDropdown.tsx",
+          "operation": "modify",
+          "description": "Add SelectContent with SelectItem components for each project retrieved from getAllUserProjects query. Display project names with optional color indicators. Add a separator and a 'Neues Projekt erstellen' SelectItem at the bottom. Implement onValueChange handler that navigates to the selected project's dashboard using react-router-dom navigate, or to /roadmap for new project creation. Update session storage with selected project ID on selection."
+        }
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "summary": "Navigate users to WelcomeScreen after login or logout with three project action options",
+      "acceptanceCriteria": [
+        "After successful Internet Identity login, user is redirected to WelcomeScreen",
+        "After logout, user is redirected to WelcomeScreen",
+        "WelcomeScreen displays three clearly labeled options for project actions",
+        "Each option navigates to the appropriate destination when clicked"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Modify the authentication flow to navigate to /welcome after successful login instead of directly to dashboard. Update the logout handler to clear all application data and navigate to /welcome. Ensure the WelcomeScreen route is registered in the routing configuration."
+        },
+        {
+          "path": "frontend/src/pages/WelcomeScreen.tsx",
+          "operation": "modify",
+          "description": "Update the WelcomeScreen to ensure all three action cards are clearly visible and functional: 'Neues Projekt erstellen' (navigate to /roadmap), 'Zu bestehendem Projekt zurückkehren' (navigate to /projects for project selection), and 'Bestehendes Projekt joinen' (open join family dialog). Verify navigation handlers are properly implemented for each action."
+        }
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "summary": "Auto-load last used project from LocalStorage on direct URL access and navigate to that project's dashboard",
+      "acceptanceCriteria": [
+        "On app initialization, check LocalStorage for last used project ID",
+        "If a valid last used project ID exists and user is authenticated, navigate to that project's dashboard",
+        "If no last used project exists or user is not authenticated, show WelcomeScreen",
+        "Auto-navigation only happens on direct URL access, not after login/logout"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useProjectSession.ts",
+          "operation": "create",
+          "description": "Create a custom hook that manages project session state in LocalStorage with key 'lastUsedProjectId'. Provides functions to get, set, and clear the last used project ID. Includes validation to ensure the project ID is a valid string."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Add initialization logic using useEffect that runs on mount to check for lastUsedProjectId in LocalStorage. If found and user is authenticated, verify project access by querying the backend, then navigate to that project's dashboard. If not found or user is not authenticated, navigate to WelcomeScreen. Use a flag to distinguish between direct URL access and post-login navigation to prevent auto-navigation after login/logout."
+        }
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "summary": "Store currently selected project ID in LocalStorage whenever user switches or selects a project",
+      "acceptanceCriteria": [
+        "When user selects a project from the dropdown, save that project ID to LocalStorage",
+        "When user creates a new project and navigates to it, save that project ID to LocalStorage",
+        "When user joins a project via invite, save that project ID to LocalStorage",
+        "LocalStorage key is consistent and namespaced appropriately"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/ProjectDropdown.tsx",
+          "operation": "modify",
+          "description": "Update the onValueChange handler to call the useProjectSession hook's setLastUsedProjectId function whenever a project is selected from the dropdown, before navigating to the project's dashboard."
+        },
+        {
+          "path": "frontend/src/pages/Roadmap.tsx",
+          "operation": "modify",
+          "description": "After successful project creation, call setLastUsedProjectId with the newly created project ID before navigating to the dashboard or project view."
+        },
+        {
+          "path": "frontend/src/pages/ApplyInvite.tsx",
+          "operation": "modify",
+          "description": "After successfully claiming an invite token and joining a project, retrieve the associated project ID and save it to LocalStorage using setLastUsedProjectId, then navigate to that project's dashboard."
+        }
+      ]
+    },
+    {
+      "id": "REQ-6",
+      "summary": "Verify user has access to projects when loading from LocalStorage or switching via dropdown",
+      "acceptanceCriteria": [
+        "Before loading a project from LocalStorage, verify the user has access to that project",
+        "If user does not have access to the stored project, redirect to WelcomeScreen",
+        "Project dropdown only shows projects the current user is a member of",
+        "Proper error handling if project access fails"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "When loading a project from LocalStorage on initialization, wrap the getProjekt query in try-catch error handling. If the query fails (user doesn't have access), clear the lastUsedProjectId from LocalStorage and redirect to WelcomeScreen. Display appropriate error toast notification if project access is denied."
+        },
+        {
+          "path": "frontend/src/components/ProjectDropdown.tsx",
+          "operation": "modify",
+          "description": "Ensure the dropdown only displays projects returned from getAllUserProjects, which inherently includes only projects the user is a member of. Add error handling for the projects query with fallback to empty array and error toast if loading projects fails."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,140 @@
+{
+  "kind": "build_request",
+  "title": "Add project dropdown in topbar with navigation and session management",
+  "projectName": "Umbau Manager",
+  "priority": "high",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "text": "Add a project dropdown component in the black marked area of the topbar (between the 'Dashboard' title and the 'U' user icon in the top right) that displays the name of the currently selected project",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-20"
+        ],
+        "quotes": [
+          "Projekt-Dropdown im markierten schwarzen Bereich (oben rechts in der Topbar, zwischen dem 'Dashboard' Titel und dem 'U' User-Icon)"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Dropdown is positioned in the topbar between the page title and user icon",
+        "Current project name is displayed in the dropdown trigger",
+        "Dropdown has appropriate styling consistent with the existing topbar design"
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "When the project dropdown is clicked, display a list of all available projects for the current user plus a 'Neues Projekt erstellen' (Create New Project) option at the bottom",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-20"
+        ],
+        "quotes": [
+          "Beim Klick öffnet sich ein Dropdown mit allen verfügbaren Projekten + 'Neues Projekt erstellen' Option"
+        ]
+      },
+      "acceptanceCriteria": [
+        "All projects accessible to the user are listed in the dropdown",
+        "Each project entry shows the project name",
+        "A 'Neues Projekt erstellen' option appears at the bottom of the list",
+        "Clicking a project navigates to that project's dashboard",
+        "Clicking 'Neues Projekt erstellen' navigates to the Roadmap page to create a new project"
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "After login or logout, navigate the user to the WelcomeScreen with three options: 'Neues Projekt erstellen' (Create New Project), 'Zu bestehendem Projekt zurückkehren' (Return to Existing Project), and 'Bestehendes Projekt joinen' (Join Existing Project)",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-20"
+        ],
+        "quotes": [
+          "Nach Login/Logout → 'Willkommen im Umbau Manager' Startbildschirm mit den 3 Optionen (Neues Projekt erstellen, Zu bestehendem Projekt zurückkehren, Bestehendes Projekt joinen)"
+        ]
+      },
+      "acceptanceCriteria": [
+        "After successful Internet Identity login, user is redirected to WelcomeScreen",
+        "After logout, user is redirected to WelcomeScreen",
+        "WelcomeScreen displays three clearly labeled options for project actions",
+        "Each option navigates to the appropriate destination when clicked"
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "When accessing the app directly via URL (not through login), automatically load the last used project from LocalStorage and navigate to that project's dashboard",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-20"
+        ],
+        "quotes": [
+          "Bei direktem URL-Aufruf → Das zuletzt verwendete Projekt wird automatisch geladen"
+        ]
+      },
+      "acceptanceCriteria": [
+        "On app initialization, check LocalStorage for last used project ID",
+        "If a valid last used project ID exists and user is authenticated, navigate to that project's dashboard",
+        "If no last used project exists or user is not authenticated, show WelcomeScreen",
+        "Auto-navigation only happens on direct URL access, not after login/logout"
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "text": "Implement session management that stores the currently selected project ID in LocalStorage whenever a user switches projects or selects a project",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-20"
+        ],
+        "quotes": [
+          "LocalStorage speichert das zuletzt verwendete Projekt"
+        ]
+      },
+      "acceptanceCriteria": [
+        "When user selects a project from the dropdown, save that project ID to LocalStorage",
+        "When user creates a new project and navigates to it, save that project ID to LocalStorage",
+        "When user joins a project via invite, save that project ID to LocalStorage",
+        "LocalStorage key is consistent and namespaced appropriately"
+      ]
+    },
+    {
+      "id": "REQ-6",
+      "text": "Ensure proper project access control and permission checking when loading projects from LocalStorage or switching projects via the dropdown",
+      "target": "both",
+      "source": {
+        "messageIds": [
+          "msg-20"
+        ],
+        "quotes": [
+          "Korrekte Projekt-Zuordnung und Berechtigungsprüfung"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Before loading a project from LocalStorage, verify the user has access to that project",
+        "If user does not have access to the stored project, redirect to WelcomeScreen",
+        "Project dropdown only shows projects the current user is a member of",
+        "Proper error handling if project access fails"
+      ]
+    }
+  ],
+  "constraints": [
+    "Maintain existing Internet Identity authentication flow",
+    "Do not modify the user icon ('U') or logout functionality in the topbar",
+    "Preserve existing routing structure for all pages",
+    "Keep the existing sidebar navigation intact",
+    "Do not change the project data model in the backend"
+  ],
+  "nonGoals": [
+    "Modifying the sidebar navigation structure",
+    "Changing the project creation or editing forms",
+    "Altering the appearance of the user profile menu",
+    "Implementing project deletion from the dropdown",
+    "Adding project search or filtering in the dropdown"
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}

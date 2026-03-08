@@ -1,0 +1,137 @@
+{
+  "kind": "feature_evidence_report",
+  "features": [
+    {
+      "featureId": "feature-add-a-project-dropdown-component-in-the-black-marked-area-of-the-topbar-between-the-dashboard-title-and-the-u-user-icon-in-the-top-right-that-displays-the-name-of-the-currently-selected-project",
+      "featureTitle": "Add a project dropdown component in the black marked area of the topbar (between the 'Dashboard' title and the 'U' user icon in the top right) that displays the name of the currently selected project",
+      "files": [
+        "frontend/src/components/AppLayout.tsx",
+        "frontend/src/components/ProjectDropdown.tsx"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "invite-links@3.0.0"
+      ],
+      "testIds": [
+        "REQ-1"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-when-the-project-dropdown-is-clicked-display-a-list-of-all-available-projects-for-the-current-user-plus-a-neues-projekt-erstellen-create-new-project-option-at-the-bottom",
+      "featureTitle": "When the project dropdown is clicked, display a list of all available projects for the current user plus a 'Neues Projekt erstellen' (Create New Project) option at the bottom",
+      "files": [
+        "frontend/src/components/ProjectDropdown.tsx"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "invite-links@3.0.0"
+      ],
+      "testIds": [
+        "REQ-2"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-after-login-or-logout-navigate-the-user-to-the-welcomescreen-with-three-options-neues-projekt-erstellen-create-new-project-zu-bestehendem-projekt-zur-ckkehren-return-to-existing-project-and-bestehendes-projekt-joinen-join-existing-project",
+      "featureTitle": "After login or logout, navigate the user to the WelcomeScreen with three options: 'Neues Projekt erstellen' (Create New Project), 'Zu bestehendem Projekt zurückkehren' (Return to Existing Project), and 'Bestehendes Projekt joinen' (Join Existing Project)",
+      "files": [
+        "frontend/src/App.tsx",
+        "frontend/src/pages/WelcomeScreen.tsx"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "invite-links@3.0.0"
+      ],
+      "testIds": [
+        "REQ-3"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-when-accessing-the-app-directly-via-url-not-through-login-automatically-load-the-last-used-project-from-localstorage-and-navigate-to-that-project-s-dashboard",
+      "featureTitle": "When accessing the app directly via URL (not through login), automatically load the last used project from LocalStorage and navigate to that project's dashboard",
+      "files": [
+        "frontend/src/App.tsx",
+        "frontend/src/hooks/useProjectSession.ts"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "invite-links@3.0.0"
+      ],
+      "testIds": [
+        "REQ-4"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-implement-session-management-that-stores-the-currently-selected-project-id-in-localstorage-whenever-a-user-switches-projects-or-selects-a-project",
+      "featureTitle": "Implement session management that stores the currently selected project ID in LocalStorage whenever a user switches projects or selects a project",
+      "files": [
+        "frontend/src/components/ProjectDropdown.tsx",
+        "frontend/src/pages/ApplyInvite.tsx",
+        "frontend/src/pages/Roadmap.tsx"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "invite-links@3.0.0"
+      ],
+      "testIds": [
+        "REQ-5"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-ensure-proper-project-access-control-and-permission-checking-when-loading-projects-from-localstorage-or-switching-projects-via-the-dropdown",
+      "featureTitle": "Ensure proper project access control and permission checking when loading projects from LocalStorage or switching projects via the dropdown",
+      "files": [
+        "frontend/src/App.tsx",
+        "frontend/src/components/ProjectDropdown.tsx"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "invite-links@3.0.0"
+      ],
+      "testIds": [
+        "REQ-6"
+      ],
+      "confidence": "high"
+    }
+  ]
+}
