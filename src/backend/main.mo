@@ -1097,6 +1097,44 @@ actor {
     };
   };
 
+
+  public query ({ caller }) func getKostenpunkteByProjectAndPhases(projectId : ProjectId) : async [CostItem] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Run.trap("Unauthorized: Only users can view cost items");
+    };
+    let userProjects = getUserProjects(effectiveOwner(caller));
+    switch (userProjects.get(projectId)) {
+      case (null) {
+        Run.trap("Projekt nicht gefunden oder keine Berechtigung");
+      };
+      case (?parentProject) {
+        if (parentProject.owner != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+          Run.trap("Unauthorized: You can only view cost items from your own projects");
+        };
+        let userCostItems = getUserCostItems(effectiveOwner(caller));
+        let phases = userProjects.values().toArray().filter(
+          func(project) {
+            switch (project.parentProjectId) {
+              case (?pid) { pid == projectId };
+              case (_) { false };
+            };
+          }
+        );
+        let projectItems = switch (userCostItems.get(projectId)) {
+          case (?items) { items };
+          case (null) { [] };
+        };
+        let phaseItems = phases.map(func(phase : Project) : [CostItem] {
+          switch (userCostItems.get(phase.id)) {
+            case (?items) { items };
+            case (null) { [] };
+          };
+        }).flatten();
+        [projectItems, phaseItems].flatten();
+      };
+    };
+  };
+
   public query ({ caller }) func getAllKostenpunkte() : async [CostItem] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view cost items");

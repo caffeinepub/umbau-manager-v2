@@ -285,6 +285,11 @@ export const idlService = IDL.Service({
       [IDL.Vec(CostItem)],
       ['query'],
     ),
+  'getKostenpunkteByProjectAndPhases' : IDL.Func(
+      [ProjectId],
+      [IDL.Vec(CostItem)],
+      ['query'],
+    ),
   'getPhasesByProject' : IDL.Func([ProjectId], [IDL.Vec(Project)], ['query']),
   'getProjekt' : IDL.Func([ProjectId], [Project], ['query']),
   'getTask' : IDL.Func([TaskId], [Task], ['query']),
@@ -656,6 +661,11 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getKostenpunkteByProjekt' : IDL.Func(
+        [ProjectId],
+        [IDL.Vec(CostItem)],
+        ['query'],
+      ),
+    'getKostenpunkteByProjectAndPhases' : IDL.Func(
         [ProjectId],
         [IDL.Vec(CostItem)],
         ['query'],

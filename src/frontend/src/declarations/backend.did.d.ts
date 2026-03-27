@@ -248,6 +248,7 @@ export interface _SERVICE {
   'getInviteCodes' : ActorMethod<[], Array<InviteCode>>,
   'getKostenUebersicht' : ActorMethod<[[] | [ProjectId]], KostenUebersicht>,
   'getKostenpunkteByProjekt' : ActorMethod<[ProjectId], Array<CostItem>>,
+  'getKostenpunkteByProjectAndPhases' : ActorMethod<[ProjectId], Array<CostItem>>,
   'getPhasesByProject' : ActorMethod<[ProjectId], Array<Project>>,
   'getProjekt' : ActorMethod<[ProjectId], Project>,
   'getTask' : ActorMethod<[TaskId], Task>,

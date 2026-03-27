@@ -187,6 +187,7 @@ export interface backendInterface {
     getInviteCodes(): Promise<Array<InviteCode>>;
     getKostenUebersicht(projektId: ProjectId | null): Promise<KostenUebersicht>;
     getKostenpunkteByProjekt(projectId: ProjectId): Promise<Array<CostItem>>;
+    getKostenpunkteByProjectAndPhases(projectId: ProjectId): Promise<Array<CostItem>>;
     getPhasesByProject(parentId: ProjectId): Promise<Array<Project>>;
     getProjekt(id: ProjectId): Promise<Project>;
     getTask(taskId: TaskId): Promise<Task>;

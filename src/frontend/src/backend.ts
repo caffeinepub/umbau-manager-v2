@@ -279,6 +279,7 @@ export interface backendInterface {
     getInviteCodes(): Promise<Array<InviteCode>>;
     getKostenUebersicht(projektId: ProjectId | null): Promise<KostenUebersicht>;
     getKostenpunkteByProjekt(projectId: ProjectId): Promise<Array<CostItem>>;
+    getKostenpunkteByProjectAndPhases(projectId: ProjectId): Promise<Array<CostItem>>;
     getPhasesByProject(parentId: ProjectId): Promise<Array<Project>>;
     getProjekt(id: ProjectId): Promise<Project>;
     getTask(taskId: TaskId): Promise<Task>;
@@ -866,6 +867,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getKostenpunkteByProjekt(arg0);
+            return from_candid_vec_n25(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getKostenpunkteByProjectAndPhases(arg0: ProjectId): Promise<Array<CostItem>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getKostenpunkteByProjectAndPhases(arg0);
+                return from_candid_vec_n25(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getKostenpunkteByProjectAndPhases(arg0);
             return from_candid_vec_n25(this._uploadFile, this._downloadFile, result);
         }
     }

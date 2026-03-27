@@ -1023,12 +1023,7 @@ export function useGetCostItemsByProjectQuery(projectId: string | null) {
     queryKey: ["costItems", "byProject", projectId],
     queryFn: async () => {
       if (!actor || !projectId) return [];
-      const [all, phases] = await Promise.all([
-        actor.getAllKostenpunkte(),
-        actor.getPhasesByProject(projectId),
-      ]);
-      const projectIds = new Set([projectId, ...phases.map((p) => p.id)]);
-      return all.filter((item) => projectIds.has(item.projektId));
+      return actor.getKostenpunkteByProjectAndPhases(projectId);
     },
     enabled: !!actor && !isFetching && !!projectId,
   });
