@@ -1,11 +1,17 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2 } from 'lucide-react';
-import type { CostItem } from '../backend';
-import type { Principal } from '@icp-sdk/core/principal';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { Principal } from "@icp-sdk/core/principal";
+import { Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
+import type { CostItem } from "../backend";
 
 interface CostItemsSectionProps {
   costItems: CostItem[];
@@ -14,24 +20,37 @@ interface CostItemsSectionProps {
   userPrincipal: Principal | null;
 }
 
-const COST_CATEGORIES = ['Energie', 'Ausstattung', 'Material', 'Arbeit', 'Planung', 'Sonstiges'];
-const COST_STATUS = ['geplant', 'bezahlt', 'offen'];
+const COST_CATEGORIES = [
+  "Energie",
+  "Ausstattung",
+  "Material",
+  "Arbeit",
+  "Planung",
+  "Sonstiges",
+];
+const COST_STATUS = ["geplant", "bezahlt", "offen"];
 
-export function CostItemsSection({ costItems, onChange, projectId, userPrincipal }: CostItemsSectionProps) {
+export function CostItemsSection({
+  costItems,
+  onChange,
+  projectId,
+  userPrincipal,
+}: CostItemsSectionProps) {
   const [newItem, setNewItem] = useState({
-    beschreibung: '',
-    betrag: '',
-    kategorie: 'Material',
-    status: 'geplant',
+    beschreibung: "",
+    betrag: "",
+    kategorie: "Material",
+    status: "geplant",
   });
 
   const handleAddItem = () => {
-    if (!newItem.beschreibung.trim() || !newItem.betrag || !userPrincipal) return;
+    if (!newItem.beschreibung.trim() || !newItem.betrag || !userPrincipal)
+      return;
 
     const costItem: CostItem = {
       id: `cost_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       beschreibung: newItem.beschreibung.trim(),
-      betrag: parseFloat(newItem.betrag),
+      betrag: Number.parseFloat(newItem.betrag),
       kategorie: newItem.kategorie,
       status: newItem.status,
       datum: BigInt(Date.now() * 1000000),
@@ -41,21 +60,21 @@ export function CostItemsSection({ costItems, onChange, projectId, userPrincipal
 
     onChange([...costItems, costItem]);
     setNewItem({
-      beschreibung: '',
-      betrag: '',
-      kategorie: 'Material',
-      status: 'geplant',
+      beschreibung: "",
+      betrag: "",
+      kategorie: "Material",
+      status: "geplant",
     });
   };
 
   const handleRemoveItem = (id: string) => {
-    onChange(costItems.filter(item => item.id !== id));
+    onChange(costItems.filter((item) => item.id !== id));
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('de-DE', {
-      style: 'currency',
-      currency: 'EUR',
+    return new Intl.NumberFormat("de-DE", {
+      style: "currency",
+      currency: "EUR",
     }).format(amount);
   };
 
@@ -81,15 +100,23 @@ export function CostItemsSection({ costItems, onChange, projectId, userPrincipal
               className="flex items-center justify-between gap-3 p-2 bg-background rounded border"
             >
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{item.beschreibung}</p>
+                <p className="text-sm font-medium truncate">
+                  {item.beschreibung}
+                </p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-muted-foreground">{item.kategorie}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {item.kategorie}
+                  </span>
                   <span className="text-xs text-muted-foreground">•</span>
-                  <span className="text-xs text-muted-foreground capitalize">{item.status}</span>
+                  <span className="text-xs text-muted-foreground capitalize">
+                    {item.status}
+                  </span>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-sm font-semibold">{formatCurrency(item.betrag)}</span>
+                <span className="text-sm font-semibold">
+                  {formatCurrency(item.betrag)}
+                </span>
                 <Button
                   type="button"
                   size="sm"
@@ -116,7 +143,9 @@ export function CostItemsSection({ costItems, onChange, projectId, userPrincipal
             <Input
               id="cost-beschreibung"
               value={newItem.beschreibung}
-              onChange={(e) => setNewItem({ ...newItem, beschreibung: e.target.value })}
+              onChange={(e) =>
+                setNewItem({ ...newItem, beschreibung: e.target.value })
+              }
               placeholder="z.B. Solaranlage Installation"
               className="h-9"
             />
@@ -131,7 +160,9 @@ export function CostItemsSection({ costItems, onChange, projectId, userPrincipal
               step="0.01"
               min="0"
               value={newItem.betrag}
-              onChange={(e) => setNewItem({ ...newItem, betrag: e.target.value })}
+              onChange={(e) =>
+                setNewItem({ ...newItem, betrag: e.target.value })
+              }
               placeholder="0.00"
               className="h-9"
             />
@@ -142,7 +173,9 @@ export function CostItemsSection({ costItems, onChange, projectId, userPrincipal
             </Label>
             <Select
               value={newItem.kategorie}
-              onValueChange={(value) => setNewItem({ ...newItem, kategorie: value })}
+              onValueChange={(value) =>
+                setNewItem({ ...newItem, kategorie: value })
+              }
             >
               <SelectTrigger id="cost-kategorie" className="h-9">
                 <SelectValue />
@@ -162,7 +195,9 @@ export function CostItemsSection({ costItems, onChange, projectId, userPrincipal
             </Label>
             <Select
               value={newItem.status}
-              onValueChange={(value) => setNewItem({ ...newItem, status: value })}
+              onValueChange={(value) =>
+                setNewItem({ ...newItem, status: value })
+              }
             >
               <SelectTrigger id="cost-status" className="h-9">
                 <SelectValue />
@@ -182,7 +217,11 @@ export function CostItemsSection({ costItems, onChange, projectId, userPrincipal
               size="sm"
               variant="outline"
               onClick={handleAddItem}
-              disabled={!newItem.beschreibung.trim() || !newItem.betrag || !userPrincipal}
+              disabled={
+                !newItem.beschreibung.trim() ||
+                !newItem.betrag ||
+                !userPrincipal
+              }
               className="w-full h-9"
             >
               <Plus className="h-4 w-4 mr-2" />

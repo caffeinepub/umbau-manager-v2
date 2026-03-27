@@ -1,74 +1,132 @@
-import { useState, useMemo } from 'react';
-import { useGetAllProjects, useGetAllTasks, useCreateProject, useCreateTask, useChangeTaskStatus, useGetAllContacts, useGetKostenUebersicht, useGetCallerUserProfile } from '../hooks/useQueries';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Building2, CheckCircle2, Clock, AlertCircle, Plus, Calendar, ArrowRight, Euro } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { DynamicSelect } from '../components/DynamicSelect';
-import { BaseDialog } from '../components/BaseDialog';
-import { CostItemsSection } from '../components/CostItemsSection';
-import { ProjectTimelineInput, TimelineMode } from '../components/ProjectTimelineInput';
-import { useFocusOnMount } from '../lib/focusManager';
-import { getKategorien, addKategorie, getGewerke, addGewerke, getBereiche, addBereich } from '../lib/customCategories';
-import { isThisWeek, monthToTimestamps, validateMonthRange } from '../lib/dateUtils';
-import { CalendarView } from '../components/CalendarView';
-import { UpcomingTasksWidget } from '../components/UpcomingTasksWidget';
-import { setSelectedTaskId } from '../utils/urlParams';
-import { toast } from 'sonner';
-import { UserType } from '../backend';
-import type { CostItem } from '../backend';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertCircle,
+  ArrowRight,
+  Building2,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  Euro,
+  Plus,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import { UserType } from "../backend";
+import type { CostItem } from "../backend";
+import { BaseDialog } from "../components/BaseDialog";
+import { CalendarView } from "../components/CalendarView";
+import { CostItemsSection } from "../components/CostItemsSection";
+import { DynamicSelect } from "../components/DynamicSelect";
+import {
+  ProjectTimelineInput,
+  type TimelineMode,
+} from "../components/ProjectTimelineInput";
+import { UpcomingTasksWidget } from "../components/UpcomingTasksWidget";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import {
+  useChangeTaskStatus,
+  useCreateProject,
+  useCreateTask,
+  useGetAllContacts,
+  useGetAllProjects,
+  useGetCallerUserProfile,
+  useGetKostenUebersicht,
+  useGetPhasesByProject,
+  useGetTasksByProject,
+} from "../hooks/useQueries";
+import {
+  addBereich,
+  addGewerke,
+  addKategorie,
+  getBereiche,
+  getGewerke,
+  getKategorien,
+} from "../lib/customCategories";
+import {
+  isThisWeek,
+  monthToTimestamps,
+  validateMonthRange,
+} from "../lib/dateUtils";
+import { useFocusOnMount } from "../lib/focusManager";
+import { setSelectedTaskId } from "../utils/urlParams";
 
-export default function Dashboard() {
-  const { data: projects, isLoading: projectsLoading } = useGetAllProjects();
-  const { data: allTasks = [] } = useGetAllTasks();
+interface DashboardProps {
+  currentProjectId?: string | null;
+}
+
+export default function Dashboard({ currentProjectId }: DashboardProps) {
+  const { data: projects, isLoading: _projectsLoading } = useGetPhasesByProject(
+    currentProjectId ?? null,
+  );
+  const { data: allTasks = [] } = useGetTasksByProject(
+    currentProjectId ?? null,
+  );
   const { data: contacts = [] } = useGetAllContacts();
   const { data: kostenUebersicht } = useGetKostenUebersicht();
   const { data: userProfile } = useGetCallerUserProfile();
   const { identity } = useInternetIdentity();
-  
-  const [kategorienOptions, setKategorienOptions] = useState<string[]>(getKategorien());
+
+  const [kategorienOptions, setKategorienOptions] = useState<string[]>(
+    getKategorien(),
+  );
   const [gewerkeOptions, setGewerkeOptions] = useState<string[]>(getGewerke());
-  const [bereicheOptions, setBereicheOptions] = useState<string[]>(getBereiche());
+  const [bereicheOptions, setBereicheOptions] = useState<string[]>(
+    getBereiche(),
+  );
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
   const [costItems, setCostItems] = useState<CostItem[]>([]);
-  const [timelineMode, setTimelineMode] = useState<TimelineMode>('exact');
+  const [timelineMode, setTimelineMode] = useState<TimelineMode>("exact");
   const [newProject, setNewProject] = useState({
-    name: '',
-    kunde: '',
-    color: '#3b82f6',
-    exactStartDate: '',
-    exactEndDate: '',
-    monthStartDate: '',
-    monthEndDate: '',
-    kategorie: 'none',
-    verantwortlicherKontakt: 'none',
+    name: "",
+    kunde: "",
+    color: "#3b82f6",
+    exactStartDate: "",
+    exactEndDate: "",
+    monthStartDate: "",
+    monthEndDate: "",
+    kategorie: "Allgemein",
+    verantwortlicherKontakt: "none",
   });
   const [newTask, setNewTask] = useState({
-    titel: '',
-    beschreibung: '',
-    gewerke: 'none',
-    dringlichkeit: '1',
-    bereich: 'none',
-    kategorie: '',
-    faelligkeitDate: '',
-    faelligkeitTime: '',
-    verantwortlicherKontakt: 'none',
-    projectId: 'none',
+    titel: "",
+    beschreibung: "",
+    gewerke: "none",
+    dringlichkeit: "1",
+    bereich: "none",
+    kategorie: "",
+    faelligkeitDate: "",
+    faelligkeitTime: "",
+    verantwortlicherKontakt: "none",
+    projectId: "none",
   });
 
   const createProject = useCreateProject();
   const createTask = useCreateTask();
-  const changeTaskStatus = useChangeTaskStatus();
+  const _changeTaskStatus = useChangeTaskStatus();
 
   // Focus management
-  const projectNameInputRef = useFocusOnMount<HTMLInputElement>(isCreateProjectOpen);
+  const projectNameInputRef =
+    useFocusOnMount<HTMLInputElement>(isCreateProjectOpen);
   const taskTitleInputRef = useFocusOnMount<HTMLInputElement>(isCreateTaskOpen);
 
   // Get user principal for cost items
@@ -78,79 +136,98 @@ export default function Dashboard() {
   const isPrivateUser = userProfile?.userType === UserType.privat;
 
   // Filter tasks by status
-  const aufgabenTasks = useMemo(() => allTasks.filter(t => t.status === 'Aufgaben'), [allTasks]);
-  const dieseWocheTasks = useMemo(() => allTasks.filter(t => t.status === 'Diese Woche'), [allTasks]);
-  const feedbackTasks = useMemo(() => allTasks.filter(t => t.status === 'Benötigt Feedback'), [allTasks]);
-  const erledigtTasks = useMemo(() => allTasks.filter(t => t.status === 'Erledigt'), [allTasks]);
+  const aufgabenTasks = useMemo(
+    () => allTasks.filter((t) => t.status === "Aufgaben"),
+    [allTasks],
+  );
+  const dieseWocheTasks = useMemo(
+    () => allTasks.filter((t) => t.status === "Diese Woche"),
+    [allTasks],
+  );
+  const feedbackTasks = useMemo(
+    () => allTasks.filter((t) => t.status === "Benötigt Feedback"),
+    [allTasks],
+  );
+  const erledigtTasks = useMemo(
+    () => allTasks.filter((t) => t.status === "Erledigt"),
+    [allTasks],
+  );
 
   // Dynamic "Diese Woche" tasks based on due date
-  const thisWeekDueTasks = useMemo(() => {
-    return allTasks.filter(task => 
-      task.status !== 'Erledigt' && isThisWeek(task.faelligkeit)
+  const _thisWeekDueTasks = useMemo(() => {
+    return allTasks.filter(
+      (task) => task.status !== "Erledigt" && isThisWeek(task.faelligkeit),
     );
   }, [allTasks]);
 
-  const totalTasks = aufgabenTasks.length + dieseWocheTasks.length + feedbackTasks.length;
+  const totalTasks =
+    aufgabenTasks.length + dieseWocheTasks.length + feedbackTasks.length;
   const completedTasks = erledigtTasks.length;
 
   const stats = [
     {
-      title: 'Aktive Projekte',
+      title: "Aktive Phasen",
       value: projects?.length || 0,
       icon: Building2,
-      description: 'Laufende Bauprojekte',
-      color: 'text-blue-600 dark:text-blue-400',
-      bgColor: 'bg-blue-100 dark:bg-blue-950',
-      page: 'roadmap' as const,
+      description: "Laufende Bauphasen",
+      color: "text-blue-600 dark:text-blue-400",
+      bgColor: "bg-blue-100 dark:bg-blue-950",
+      page: "roadmap" as const,
     },
     {
-      title: 'Offene Aufgaben',
+      title: "Offene Aufgaben",
       value: totalTasks,
       icon: Clock,
-      description: 'Zu erledigende Tasks',
-      color: 'text-orange-600 dark:text-orange-400',
-      bgColor: 'bg-orange-100 dark:bg-orange-950',
-      page: 'tasks' as const,
-      filter: 'open',
+      description: "Zu erledigende Tasks",
+      color: "text-orange-600 dark:text-orange-400",
+      bgColor: "bg-orange-100 dark:bg-orange-950",
+      page: "tasks" as const,
+      filter: "open",
     },
     {
-      title: 'Erledigt',
+      title: "Erledigt",
       value: completedTasks,
       icon: CheckCircle2,
-      description: 'Abgeschlossene Aufgaben',
-      color: 'text-green-600 dark:text-green-400',
-      bgColor: 'bg-green-100 dark:bg-green-950',
-      page: 'tasks' as const,
-      filter: 'completed',
+      description: "Abgeschlossene Aufgaben",
+      color: "text-green-600 dark:text-green-400",
+      bgColor: "bg-green-100 dark:bg-green-950",
+      page: "tasks" as const,
+      filter: "completed",
     },
     {
-      title: 'Benötigt Feedback',
+      title: "Benötigt Feedback",
       value: feedbackTasks.length,
       icon: AlertCircle,
-      description: 'Warten auf Rückmeldung',
-      color: 'text-purple-600 dark:text-purple-400',
-      bgColor: 'bg-purple-100 dark:bg-purple-950',
-      page: 'tasks' as const,
-      filter: 'feedback',
+      description: "Warten auf Rückmeldung",
+      color: "text-purple-600 dark:text-purple-400",
+      bgColor: "bg-purple-100 dark:bg-purple-950",
+      page: "tasks" as const,
+      filter: "feedback",
     },
   ];
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate required fields
-    if (!newProject.name.trim() || !newProject.kategorie || newProject.kategorie === 'none') {
-      toast.error('Project name and category are required');
+
+    // Validate required fields - only name is required, kategorie defaults to "Allgemein"
+    if (!newProject.name.trim()) {
+      toast.error("Bitte geben Sie einen Phasennamen ein");
       return;
     }
-    
+
     if (!isPrivateUser && !newProject.kunde.trim()) {
-      toast.error('Customer is required');
+      toast.error("Kunde ist erforderlich");
       return;
     }
 
     if (!userPrincipal) {
-      toast.error('User not authenticated');
+      toast.error("Benutzer nicht authentifiziert");
+      return;
+    }
+
+    // Require a project context to create a phase
+    if (!currentProjectId) {
+      toast.error("Bitte wählen Sie zuerst ein Projekt aus");
       return;
     }
 
@@ -158,27 +235,36 @@ export default function Dashboard() {
     let endTimestamp: bigint | null = null;
 
     // Handle timeline based on mode
-    if (timelineMode === 'exact') {
+    if (timelineMode === "exact") {
       // Validate date range only if both dates are provided
       if (newProject.exactStartDate && newProject.exactEndDate) {
         const start = new Date(newProject.exactStartDate);
         const end = new Date(newProject.exactEndDate);
         if (end < start) {
-          toast.error('End date cannot be before start date');
+          toast.error("Enddatum kann nicht vor dem Startdatum liegen");
           return;
         }
         startTimestamp = BigInt(start.getTime() * 1000000);
         endTimestamp = BigInt(end.getTime() * 1000000);
       } else if (newProject.exactStartDate) {
-        startTimestamp = BigInt(new Date(newProject.exactStartDate).getTime() * 1000000);
+        startTimestamp = BigInt(
+          new Date(newProject.exactStartDate).getTime() * 1000000,
+        );
       } else if (newProject.exactEndDate) {
-        endTimestamp = BigInt(new Date(newProject.exactEndDate).getTime() * 1000000);
+        endTimestamp = BigInt(
+          new Date(newProject.exactEndDate).getTime() * 1000000,
+        );
       }
     } else {
       // Month range mode
       if (newProject.monthStartDate && newProject.monthEndDate) {
-        if (!validateMonthRange(newProject.monthStartDate, newProject.monthEndDate)) {
-          toast.error('End month cannot be before start month');
+        if (
+          !validateMonthRange(
+            newProject.monthStartDate,
+            newProject.monthEndDate,
+          )
+        ) {
+          toast.error("Endmonat kann nicht vor dem Startmonat liegen");
           return;
         }
         const startRange = monthToTimestamps(newProject.monthStartDate);
@@ -197,7 +283,7 @@ export default function Dashboard() {
     const projectId = `project_${Date.now()}`;
 
     // Ensure all cost items have the correct owner before submission
-    const validatedCostItems = costItems.map(item => ({
+    const validatedCostItems = costItems.map((item) => ({
       ...item,
       owner: userPrincipal,
       projektId: projectId,
@@ -210,36 +296,47 @@ export default function Dashboard() {
       color: newProject.color,
       start: startTimestamp,
       end: endTimestamp,
-      kategorie: newProject.kategorie,
-      verantwortlicherKontakt: newProject.verantwortlicherKontakt === 'none' ? null : newProject.verantwortlicherKontakt,
+      kategorie: newProject.kategorie || "Allgemein",
+      verantwortlicherKontakt:
+        newProject.verantwortlicherKontakt === "none"
+          ? null
+          : newProject.verantwortlicherKontakt,
       costItems: validatedCostItems,
+      parentProjectId: currentProjectId,
     });
 
     setNewProject({
-      name: '',
-      kunde: '',
-      color: '#3b82f6',
-      exactStartDate: '',
-      exactEndDate: '',
-      monthStartDate: '',
-      monthEndDate: '',
-      kategorie: 'none',
-      verantwortlicherKontakt: 'none',
+      name: "",
+      kunde: "",
+      color: "#3b82f6",
+      exactStartDate: "",
+      exactEndDate: "",
+      monthStartDate: "",
+      monthEndDate: "",
+      kategorie: "Allgemein",
+      verantwortlicherKontakt: "none",
     });
     setCostItems([]);
-    setTimelineMode('exact');
+    setTimelineMode("exact");
     setIsCreateProjectOpen(false);
   };
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTask.titel.trim() || !newTask.gewerke || newTask.gewerke === 'none' || !newTask.bereich || newTask.bereich === 'none' || !newTask.faelligkeitDate) {
-      toast.error('Please fill in all required fields');
+    if (
+      !newTask.titel.trim() ||
+      !newTask.gewerke ||
+      newTask.gewerke === "none" ||
+      !newTask.bereich ||
+      newTask.bereich === "none" ||
+      !newTask.faelligkeitDate
+    ) {
+      toast.error("Bitte füllen Sie alle Pflichtfelder aus");
       return;
     }
 
     const taskId = `task_${Date.now()}`;
-    
+
     // Combine date and time
     let fälligkeitTimestamp: bigint;
     if (newTask.faelligkeitTime) {
@@ -247,7 +344,9 @@ export default function Dashboard() {
       fälligkeitTimestamp = BigInt(new Date(dateTimeStr).getTime() * 1000000);
     } else {
       // Default to start of day if no time specified
-      fälligkeitTimestamp = BigInt(new Date(newTask.faelligkeitDate).getTime() * 1000000);
+      fälligkeitTimestamp = BigInt(
+        new Date(newTask.faelligkeitDate).getTime() * 1000000,
+      );
     }
 
     await createTask.mutateAsync({
@@ -255,34 +354,40 @@ export default function Dashboard() {
       titel: newTask.titel,
       beschreibung: newTask.beschreibung,
       gewerke: newTask.gewerke,
-      status: 'Aufgaben',
+      status: "Aufgaben",
       dringlichkeit: BigInt(newTask.dringlichkeit),
       bereich: newTask.bereich,
       faelligkeit: fälligkeitTimestamp,
-      kategorie: newTask.kategorie || 'Allgemein',
-      verantwortlicherKontakt: newTask.verantwortlicherKontakt === 'none' ? null : newTask.verantwortlicherKontakt,
-      projectId: newTask.projectId === 'none' ? null : newTask.projectId,
+      kategorie: newTask.kategorie || "Allgemein",
+      verantwortlicherKontakt:
+        newTask.verantwortlicherKontakt === "none"
+          ? null
+          : newTask.verantwortlicherKontakt,
+      projectId:
+        newTask.projectId === "none"
+          ? (currentProjectId ?? null)
+          : newTask.projectId,
     });
 
     setNewTask({
-      titel: '',
-      beschreibung: '',
-      gewerke: 'none',
-      dringlichkeit: '1',
-      bereich: 'none',
-      kategorie: '',
-      faelligkeitDate: '',
-      faelligkeitTime: '',
-      verantwortlicherKontakt: 'none',
-      projectId: 'none',
+      titel: "",
+      beschreibung: "",
+      gewerke: "none",
+      dringlichkeit: "1",
+      bereich: "none",
+      kategorie: "",
+      faelligkeitDate: "",
+      faelligkeitTime: "",
+      verantwortlicherKontakt: "none",
+      projectId: "none",
     });
     setIsCreateTaskOpen(false);
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('de-DE', {
-      style: 'currency',
-      currency: 'EUR',
+    return new Intl.NumberFormat("de-DE", {
+      style: "currency",
+      currency: "EUR",
     }).format(amount);
   };
 
@@ -301,15 +406,18 @@ export default function Dashboard() {
     setBereicheOptions(getBereiche());
   };
 
-  const handleStatCardClick = (page: 'roadmap' | 'tasks' | 'kostenuebersicht', filter?: string) => {
+  const handleStatCardClick = (
+    page: "roadmap" | "tasks" | "kostenuebersicht",
+    filter?: string,
+  ) => {
     // This will be handled by App.tsx navigation
-    const event = new CustomEvent('navigate', { detail: { page, filter } });
+    const event = new CustomEvent("navigate", { detail: { page, filter } });
     window.dispatchEvent(event);
   };
 
   const handleTaskClick = (taskId: string) => {
     setSelectedTaskId(taskId);
-    const event = new CustomEvent('navigate', { detail: { page: 'tasks' } });
+    const event = new CustomEvent("navigate", { detail: { page: "tasks" } });
     window.dispatchEvent(event);
   };
 
@@ -329,26 +437,31 @@ export default function Dashboard() {
               setIsCreateProjectOpen(open);
               if (!open) {
                 setCostItems([]);
-                setTimelineMode('exact');
+                setTimelineMode("exact");
               }
             }}
-            title="Neues Projekt erstellen"
-            description="Erstellen Sie ein neues Bauprojekt mit Kostenpunkten"
+            title="Neue Phase erstellen"
+            description="Erstellen Sie eine neue Bauphase mit Kostenpunkten"
             trigger={
-              <Button>
+              <Button disabled={!currentProjectId}>
                 <Plus className="h-4 w-4 mr-2" />
-                Projekt erstellen
+                Phase hinzufügen
               </Button>
             }
           >
-            <form onSubmit={handleCreateProject} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+            <form
+              onSubmit={handleCreateProject}
+              className="space-y-4 max-h-[70vh] overflow-y-auto pr-2"
+            >
               <div className="space-y-2">
-                <Label htmlFor="name">Projektname *</Label>
+                <Label htmlFor="name">Phasenname *</Label>
                 <Input
                   ref={projectNameInputRef}
                   id="name"
                   value={newProject.name}
-                  onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                  onChange={(e) =>
+                    setNewProject({ ...newProject, name: e.target.value })
+                  }
                   placeholder="z.B. Dachsanierung Hauptgebäude"
                   required
                 />
@@ -359,24 +472,28 @@ export default function Dashboard() {
                   <Input
                     id="kunde"
                     value={newProject.kunde}
-                    onChange={(e) => setNewProject({ ...newProject, kunde: e.target.value })}
+                    onChange={(e) =>
+                      setNewProject({ ...newProject, kunde: e.target.value })
+                    }
                     placeholder="Kundenname"
                     required
                   />
                 </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="color">Projektfarbe</Label>
+                <Label htmlFor="color">Phasenfarbe</Label>
                 <div className="flex items-center gap-3">
                   <input
                     id="color"
                     type="color"
                     value={newProject.color}
-                    onChange={(e) => setNewProject({ ...newProject, color: e.target.value })}
+                    onChange={(e) =>
+                      setNewProject({ ...newProject, color: e.target.value })
+                    }
                     className="h-10 w-20 rounded border border-input cursor-pointer"
                   />
                   <span className="text-sm text-muted-foreground">
-                    Wählen Sie eine Farbe für dieses Projekt
+                    Wählen Sie eine Farbe für diese Phase
                   </span>
                 </div>
               </div>
@@ -388,25 +505,44 @@ export default function Dashboard() {
                 exactEndDate={newProject.exactEndDate}
                 monthStartDate={newProject.monthStartDate}
                 monthEndDate={newProject.monthEndDate}
-                onExactStartChange={(value) => setNewProject({ ...newProject, exactStartDate: value })}
-                onExactEndChange={(value) => setNewProject({ ...newProject, exactEndDate: value })}
-                onMonthStartChange={(value) => setNewProject({ ...newProject, monthStartDate: value })}
-                onMonthEndChange={(value) => setNewProject({ ...newProject, monthEndDate: value })}
+                onExactStartChange={(value) =>
+                  setNewProject({ ...newProject, exactStartDate: value })
+                }
+                onExactEndChange={(value) =>
+                  setNewProject({ ...newProject, exactEndDate: value })
+                }
+                onMonthStartChange={(value) =>
+                  setNewProject({ ...newProject, monthStartDate: value })
+                }
+                onMonthEndChange={(value) =>
+                  setNewProject({ ...newProject, monthEndDate: value })
+                }
               />
 
               <DynamicSelect
                 id="kategorie"
                 label="Kategorie"
                 value={newProject.kategorie}
-                onValueChange={(value) => setNewProject({ ...newProject, kategorie: value })}
+                onValueChange={(value) =>
+                  setNewProject({ ...newProject, kategorie: value })
+                }
                 options={kategorienOptions}
                 onAddOption={handleAddKategorie}
                 placeholder="Kategorie wählen..."
-                required
               />
               <div className="space-y-2">
-                <Label htmlFor="verantwortlicherKontakt">Verantwortlicher Kontakt</Label>
-                <Select value={newProject.verantwortlicherKontakt} onValueChange={(value) => setNewProject({ ...newProject, verantwortlicherKontakt: value })}>
+                <Label htmlFor="verantwortlicherKontakt">
+                  Verantwortlicher Kontakt
+                </Label>
+                <Select
+                  value={newProject.verantwortlicherKontakt}
+                  onValueChange={(value) =>
+                    setNewProject({
+                      ...newProject,
+                      verantwortlicherKontakt: value,
+                    })
+                  }
+                >
                   <SelectTrigger id="verantwortlicherKontakt">
                     <SelectValue placeholder="Kontakt wählen..." />
                   </SelectTrigger>
@@ -425,16 +561,20 @@ export default function Dashboard() {
               <CostItemsSection
                 costItems={costItems}
                 onChange={setCostItems}
-                projectId={`project_${Date.now()}`}
+                projectId={currentProjectId ?? ""}
                 userPrincipal={userPrincipal}
               />
 
               <div className="flex gap-2 justify-end pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => setIsCreateProjectOpen(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCreateProjectOpen(false)}
+                >
                   Abbrechen
                 </Button>
                 <Button type="submit" disabled={createProject.isPending}>
-                  {createProject.isPending ? 'Erstelle...' : 'Projekt erstellen'}
+                  {createProject.isPending ? "Erstelle..." : "Phase erstellen"}
                 </Button>
               </div>
             </form>
@@ -459,7 +599,9 @@ export default function Dashboard() {
                   ref={taskTitleInputRef}
                   id="titel"
                   value={newTask.titel}
-                  onChange={(e) => setNewTask({ ...newTask, titel: e.target.value })}
+                  onChange={(e) =>
+                    setNewTask({ ...newTask, titel: e.target.value })
+                  }
                   placeholder="z.B. Dachziegel bestellen"
                   required
                 />
@@ -469,8 +611,10 @@ export default function Dashboard() {
                 <Textarea
                   id="beschreibung"
                   value={newTask.beschreibung}
-                  onChange={(e) => setNewTask({ ...newTask, beschreibung: e.target.value })}
-                  placeholder="Detaillierte Beschreibung der Aufgabe..."
+                  onChange={(e) =>
+                    setNewTask({ ...newTask, beschreibung: e.target.value })
+                  }
+                  placeholder="Zusätzliche Details zur Aufgabe..."
                   rows={3}
                 />
               </div>
@@ -478,15 +622,22 @@ export default function Dashboard() {
                 id="gewerke"
                 label="Gewerke"
                 value={newTask.gewerke}
-                onValueChange={(value) => setNewTask({ ...newTask, gewerke: value })}
+                onValueChange={(value) =>
+                  setNewTask({ ...newTask, gewerke: value })
+                }
                 options={gewerkeOptions}
                 onAddOption={handleAddGewerke}
                 placeholder="Gewerke wählen..."
                 required
               />
               <div className="space-y-2">
-                <Label htmlFor="dringlichkeit">Dringlichkeit</Label>
-                <Select value={newTask.dringlichkeit} onValueChange={(value) => setNewTask({ ...newTask, dringlichkeit: value })}>
+                <Label htmlFor="dringlichkeit">Dringlichkeit *</Label>
+                <Select
+                  value={newTask.dringlichkeit}
+                  onValueChange={(value) =>
+                    setNewTask({ ...newTask, dringlichkeit: value })
+                  }
+                >
                   <SelectTrigger id="dringlichkeit">
                     <SelectValue />
                   </SelectTrigger>
@@ -501,7 +652,9 @@ export default function Dashboard() {
                 id="bereich"
                 label="Bereich"
                 value={newTask.bereich}
-                onValueChange={(value) => setNewTask({ ...newTask, bereich: value })}
+                onValueChange={(value) =>
+                  setNewTask({ ...newTask, bereich: value })
+                }
                 options={bereicheOptions}
                 onAddOption={handleAddBereich}
                 placeholder="Bereich wählen..."
@@ -512,7 +665,9 @@ export default function Dashboard() {
                 <Input
                   id="kategorie"
                   value={newTask.kategorie}
-                  onChange={(e) => setNewTask({ ...newTask, kategorie: e.target.value })}
+                  onChange={(e) =>
+                    setNewTask({ ...newTask, kategorie: e.target.value })
+                  }
                   placeholder="z.B. Planung, Ausführung..."
                 />
               </div>
@@ -523,7 +678,12 @@ export default function Dashboard() {
                     id="faelligkeitDate"
                     type="date"
                     value={newTask.faelligkeitDate}
-                    onChange={(e) => setNewTask({ ...newTask, faelligkeitDate: e.target.value })}
+                    onChange={(e) =>
+                      setNewTask({
+                        ...newTask,
+                        faelligkeitDate: e.target.value,
+                      })
+                    }
                     required
                   />
                 </div>
@@ -533,13 +693,25 @@ export default function Dashboard() {
                     id="faelligkeitTime"
                     type="time"
                     value={newTask.faelligkeitTime}
-                    onChange={(e) => setNewTask({ ...newTask, faelligkeitTime: e.target.value })}
+                    onChange={(e) =>
+                      setNewTask({
+                        ...newTask,
+                        faelligkeitTime: e.target.value,
+                      })
+                    }
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="verantwortlicherKontakt">Verantwortlicher Kontakt</Label>
-                <Select value={newTask.verantwortlicherKontakt} onValueChange={(value) => setNewTask({ ...newTask, verantwortlicherKontakt: value })}>
+                <Label htmlFor="verantwortlicherKontakt">
+                  Verantwortlicher Kontakt
+                </Label>
+                <Select
+                  value={newTask.verantwortlicherKontakt}
+                  onValueChange={(value) =>
+                    setNewTask({ ...newTask, verantwortlicherKontakt: value })
+                  }
+                >
                   <SelectTrigger id="verantwortlicherKontakt">
                     <SelectValue placeholder="Kontakt wählen..." />
                   </SelectTrigger>
@@ -554,13 +726,18 @@ export default function Dashboard() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="projectId">Projekt</Label>
-                <Select value={newTask.projectId} onValueChange={(value) => setNewTask({ ...newTask, projectId: value })}>
+                <Label htmlFor="projectId">Phase zuordnen</Label>
+                <Select
+                  value={newTask.projectId}
+                  onValueChange={(value) =>
+                    setNewTask({ ...newTask, projectId: value })
+                  }
+                >
                   <SelectTrigger id="projectId">
-                    <SelectValue placeholder="Projekt wählen..." />
+                    <SelectValue placeholder="Phase wählen..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Kein Projekt</SelectItem>
+                    <SelectItem value="none">Keine Phase</SelectItem>
                     {projects?.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}
@@ -569,12 +746,16 @@ export default function Dashboard() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex gap-2 justify-end">
-                <Button type="button" variant="outline" onClick={() => setIsCreateTaskOpen(false)}>
+              <div className="flex gap-2 justify-end pt-4 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCreateTaskOpen(false)}
+                >
                   Abbrechen
                 </Button>
                 <Button type="submit" disabled={createTask.isPending}>
-                  {createTask.isPending ? 'Erstelle...' : 'Aufgabe erstellen'}
+                  {createTask.isPending ? "Erstelle..." : "Aufgabe erstellen"}
                 </Button>
               </div>
             </form>
@@ -582,56 +763,57 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Card
-              key={stat.title}
-              className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => handleStatCardClick(stat.page, stat.filter)}
-            >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                  <Icon className={`h-4 w-4 ${stat.color}`} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
-              </CardContent>
-            </Card>
-          );
-        })}
+      {/* Stats Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat) => (
+          <Card
+            key={stat.title}
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => handleStatCardClick(stat.page, stat.filter)}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {stat.title}
+              </CardTitle>
+              <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                <stat.icon className={`h-4 w-4 ${stat.color}`} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stat.value}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stat.description}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Cost Overview Widget */}
+      {/* Cost Overview Card */}
       {kostenUebersicht && (
-        <Card
-          className="cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => handleStatCardClick('kostenuebersicht')}
-        >
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Euro className="h-5 w-5" />
               Kostenübersicht
             </CardTitle>
+            <CardDescription>Gesamtübersicht aller Kosten</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Gesamt</p>
-                <p className="text-2xl font-bold">{formatCurrency(kostenUebersicht.gesamt)}</p>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Gesamtkosten</p>
+                <p className="text-2xl font-bold">
+                  {formatCurrency(kostenUebersicht.gesamt)}
+                </p>
               </div>
-              <div>
+              <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Bezahlt</p>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                   {formatCurrency(kostenUebersicht.bezahlt)}
                 </p>
               </div>
-              <div>
+              <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Offen</p>
                 <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                   {formatCurrency(kostenUebersicht.offen)}
@@ -642,19 +824,18 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {/* Unified Upcoming Tasks Widget */}
-      <UpcomingTasksWidget
-        tasks={allTasks}
-        projects={projects || []}
-        onTaskClick={handleTaskClick}
-      />
+      {/* Main Content Grid */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Upcoming Tasks Widget */}
+        <UpcomingTasksWidget
+          tasks={allTasks}
+          projects={projects}
+          onTaskClick={handleTaskClick}
+        />
 
-      {/* Calendar */}
-      <CalendarView
-        projects={projects || []}
-        tasks={allTasks}
-        onTaskClick={handleTaskClick}
-      />
+        {/* Calendar View */}
+        <CalendarView projects={projects || []} tasks={allTasks} />
+      </div>
     </div>
   );
 }

@@ -132,6 +132,7 @@ export interface Project {
     color: string;
     verantwortlicherKontakt?: ContactId;
     kategorie: string;
+    parentProjectId?: ProjectId;
     kunde: string;
     startDate?: Time;
 }
@@ -160,7 +161,7 @@ export interface backendInterface {
     createHelpfulLink(id: LinkId, titel: string, beschreibung: string, url: string, kategorie: string, logoUrl: string): Promise<void>;
     createInvite(generatedCode: string, role: UserRole): Promise<void>;
     createInviteToken(role: UserRole): Promise<InviteToken>;
-    createProjekt(id: ProjectId, name: string, kunde: string | null, color: string, start: Time | null, end: Time | null, kategorie: string, verantwortlicherKontakt: ContactId | null, costItemsArray: Array<CostItem>): Promise<void>;
+    createProjekt(id: ProjectId, name: string, kunde: string | null, color: string, start: Time | null, end: Time | null, kategorie: string, verantwortlicherKontakt: ContactId | null, costItemsArray: Array<CostItem>, parentProjectId: ProjectId | null): Promise<void>;
     createTask(id: TaskId, titel: string, beschreibung: string, gewerke: string, status: string, dringlichkeit: bigint, bereich: Bereich, faelligkeit: Time, kategorie: string, verantwortlicherKontakt: ContactId | null, projectId: ProjectId | null): Promise<void>;
     deleteContact(contactId: ContactId): Promise<void>;
     deleteDocument(documentId: DocumentId): Promise<void>;
@@ -177,6 +178,7 @@ export interface backendInterface {
     getAllProjects(): Promise<Array<Project>>;
     getAllRSVPs(): Promise<Array<RSVP>>;
     getAllTasks(): Promise<Array<Task>>;
+    getAllUserProjects(): Promise<Array<[ProjectId, Project]>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getContact(contactId: ContactId): Promise<Contact>;
@@ -185,9 +187,14 @@ export interface backendInterface {
     getInviteCodes(): Promise<Array<InviteCode>>;
     getKostenUebersicht(projektId: ProjectId | null): Promise<KostenUebersicht>;
     getKostenpunkteByProjekt(projectId: ProjectId): Promise<Array<CostItem>>;
+    getPhasesByProject(parentId: ProjectId): Promise<Array<Project>>;
     getProjekt(id: ProjectId): Promise<Project>;
     getTask(taskId: TaskId): Promise<Task>;
+    getTopLevelProjects(): Promise<Array<Project>>;
     getUserDocuments(): Promise<Array<Document>>;
+    getDocumentsByProject(projectId: ProjectId): Promise<Array<Document>>;
+    getMediaByProject(projectId: ProjectId): Promise<Array<Media>>;
+    getTasksByProject(projectId: ProjectId): Promise<Array<Task>>;
     getUserMedia(): Promise<Array<Media>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     initializeAccessControl(): Promise<void>;
@@ -203,7 +210,7 @@ export interface backendInterface {
     updateProjekt(id: ProjectId, name: string, kunde: string | null, color: string, start: Time | null, end: Time | null, kategorie: string, verantwortlicherKontakt: ContactId | null, costItemsArray: Array<CostItem>): Promise<void>;
     updateTask(id: TaskId, titel: string, beschreibung: string, gewerke: string, status: string, dringlichkeit: bigint, bereich: Bereich, faelligkeit: Time, kategorie: string, verantwortlicherKontakt: ContactId | null, projectId: ProjectId | null): Promise<void>;
     updateTeamMemberRole(principal: Principal, role: UserRole): Promise<void>;
-    uploadDocumentWithPDF(id: string, name: string, bereich: Bereich, typ: string, status: string, blob: ExternalBlob): Promise<void>;
-    uploadMedia(id: string, name: string, kategorie: string, typ: string, position: bigint, tags: Array<string>, blob: ExternalBlob): Promise<void>;
+    uploadDocumentWithPDF(id: string, name: string, bereich: Bereich, typ: string, status: string, blob: ExternalBlob, projectId?: ProjectId | null): Promise<void>;
+    uploadMedia(id: string, name: string, kategorie: string, typ: string, position: bigint, tags: Array<string>, blob: ExternalBlob, projectId?: ProjectId | null): Promise<void>;
     validateInviteCode(generatedCode: string): Promise<void>;
 }

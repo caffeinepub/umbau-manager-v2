@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { FileText } from 'lucide-react';
+import { FileText } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 interface PDFThumbnailProps {
   pdfUrl: string;
@@ -14,15 +14,15 @@ declare global {
 }
 
 // Persistent cache for thumbnail DataURLs using localStorage
-const CACHE_PREFIX = 'pdf_thumbnail_';
-const CACHE_VERSION = 'v1_';
+const CACHE_PREFIX = "pdf_thumbnail_";
+const CACHE_VERSION = "v1_";
 
 // Generate a simple hash for the URL to use as cache key
 function hashUrl(url: string): string {
   let hash = 0;
   for (let i = 0; i < url.length; i++) {
     const char = url.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash;
   }
   return Math.abs(hash).toString(36);
@@ -41,20 +41,22 @@ function setCachedThumbnail(url: string, dataUrl: string): void {
   try {
     const key = CACHE_PREFIX + CACHE_VERSION + hashUrl(url);
     localStorage.setItem(key, dataUrl);
-  } catch (e) {
-    console.warn('LocalStorage quota exceeded, clearing PDF thumbnail cache');
+  } catch (_e) {
+    console.warn("LocalStorage quota exceeded, clearing PDF thumbnail cache");
     try {
       // Clear old thumbnails to free up space
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const storageKey = localStorage.key(i);
-        if (storageKey && storageKey.startsWith(CACHE_PREFIX)) {
+        if (storageKey?.startsWith(CACHE_PREFIX)) {
           keysToRemove.push(storageKey);
         }
       }
       // Remove oldest entries (keep last 20)
-      keysToRemove.slice(0, -20).forEach(k => localStorage.removeItem(k));
-      
+      for (const k of keysToRemove.slice(0, -20)) {
+        localStorage.removeItem(k);
+      }
+
       // Try again
       const key = CACHE_PREFIX + CACHE_VERSION + hashUrl(url);
       localStorage.setItem(key, dataUrl);
@@ -64,7 +66,11 @@ function setCachedThumbnail(url: string, dataUrl: string): void {
   }
 }
 
-export function PDFThumbnail({ pdfUrl, className = '', fallbackIcon = true }: PDFThumbnailProps) {
+export function PDFThumbnail({
+  pdfUrl,
+  className = "",
+  fallbackIcon = true,
+}: PDFThumbnailProps) {
   const [thumbnailDataUrl, setThumbnailDataUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -73,7 +79,7 @@ export function PDFThumbnail({ pdfUrl, className = '', fallbackIcon = true }: PD
 
   useEffect(() => {
     isMountedRef.current = true;
-    
+
     if (!pdfUrl) {
       setError(true);
       setIsLoading(false);
@@ -103,7 +109,7 @@ export function PDFThumbnail({ pdfUrl, className = '', fallbackIcon = true }: PD
               }
             }, 100);
           } else {
-            console.error('PDF.js worker not available after max retries');
+            console.error("PDF.js worker not available after max retries");
             if (isMountedRef.current) {
               setError(true);
               setIsLoading(false);
@@ -111,7 +117,7 @@ export function PDFThumbnail({ pdfUrl, className = '', fallbackIcon = true }: PD
           }
           return;
         }
-        
+
         if (!isMountedRef.current) {
           return;
         }
@@ -119,52 +125,56 @@ export function PDFThumbnail({ pdfUrl, className = '', fallbackIcon = true }: PD
         // Fetch PDF explicitly as ArrayBuffer with proper Accept header
         const response = await fetch(pdfUrl, {
           headers: {
-            'Accept': 'application/pdf',
+            Accept: "application/pdf",
           },
         });
-        
+
         if (!response.ok) {
           throw new Error(`Failed to fetch PDF: ${response.status}`);
         }
-        
+
         // Verify content type
-        const contentType = response.headers.get('content-type');
-        if (contentType && !contentType.includes('application/pdf') && !contentType.includes('octet-stream')) {
+        const contentType = response.headers.get("content-type");
+        if (
+          contentType &&
+          !contentType.includes("application/pdf") &&
+          !contentType.includes("octet-stream")
+        ) {
           console.warn(`Unexpected content type for PDF: ${contentType}`);
         }
-        
+
         // Get ArrayBuffer for proper binary handling
         const arrayBuffer = await response.arrayBuffer();
-        
+
         if (!isMountedRef.current) {
           return;
         }
-        
+
         // Pass ArrayBuffer to getDocument for consistent rendering
         const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
         const pdf = await loadingTask.promise;
-        
+
         if (!isMountedRef.current) {
           return;
         }
-        
+
         // Get the first page
         const page = await pdf.getPage(1);
-        
+
         if (!isMountedRef.current) {
           return;
         }
-        
+
         // Render at 0.5× scale for thumbnail
         const viewport = page.getViewport({ scale: 0.5 });
-        
+
         const canvas = canvasRef.current;
         if (!canvas || !isMountedRef.current) {
           return;
         }
 
         // Ensure canvas has valid rendering context
-        const context = canvas.getContext('2d');
+        const context = canvas.getContext("2d");
         if (!context) {
           if (isMountedRef.current) {
             setError(true);
@@ -184,21 +194,21 @@ export function PDFThumbnail({ pdfUrl, className = '', fallbackIcon = true }: PD
 
         // Render the first page to the canvas
         await page.render(renderContext).promise;
-        
+
         if (!isMountedRef.current) {
           return;
         }
 
         // Convert canvas to DataURL for persistent caching
-        const dataUrl = canvas.toDataURL('image/png');
-        
+        const dataUrl = canvas.toDataURL("image/png");
+
         // Store in localStorage for persistent cross-session cache
         setCachedThumbnail(pdfUrl, dataUrl);
-        
+
         setThumbnailDataUrl(dataUrl);
         setIsLoading(false);
       } catch (err) {
-        console.error('Error generating PDF thumbnail:', err);
+        console.error("Error generating PDF thumbnail:", err);
         if (isMountedRef.current) {
           setError(true);
           setIsLoading(false);
@@ -217,32 +227,41 @@ export function PDFThumbnail({ pdfUrl, className = '', fallbackIcon = true }: PD
   return (
     <>
       {/* Hidden canvas for rendering - always mounted */}
-      <canvas 
-        ref={canvasRef} 
-        style={{ position: 'absolute', left: '-9999px', visibility: 'hidden', pointerEvents: 'none' }}
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          visibility: "hidden",
+          pointerEvents: "none",
+        }}
       />
-      
+
       {/* Show fallback icon on error */}
       {error && fallbackIcon && (
-        <div className={`flex items-center justify-center bg-muted ${className}`}>
+        <div
+          className={`flex items-center justify-center bg-muted ${className}`}
+        >
           <FileText className="h-12 w-12 text-muted-foreground" />
         </div>
       )}
 
       {/* Show loading state */}
       {isLoading && !error && (
-        <div className={`flex items-center justify-center bg-muted animate-pulse ${className}`}>
+        <div
+          className={`flex items-center justify-center bg-muted animate-pulse ${className}`}
+        >
           <FileText className="h-12 w-12 text-muted-foreground" />
         </div>
       )}
 
       {/* Show the thumbnail image if available */}
       {thumbnailDataUrl && !error && (
-        <img 
-          src={thumbnailDataUrl} 
+        <img
+          src={thumbnailDataUrl}
           alt="PDF Preview"
           className={`object-contain ${className}`}
-          style={{ maxWidth: '100%', height: 'auto' }}
+          style={{ maxWidth: "100%", height: "auto" }}
         />
       )}
     </>

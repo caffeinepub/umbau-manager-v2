@@ -1,19 +1,31 @@
-import { useState } from 'react';
-import { useJoinFamily } from '../hooks/useQueries';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { useJoinFamily } from "../hooks/useQueries";
 
 interface JoinFamilyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
 }
 
-export default function JoinFamilyDialog({ open, onOpenChange }: JoinFamilyDialogProps) {
-  const [inviteCode, setInviteCode] = useState('');
+export default function JoinFamilyDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+}: JoinFamilyDialogProps) {
+  const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const joinFamily = useJoinFamily();
 
@@ -22,28 +34,33 @@ export default function JoinFamilyDialog({ open, onOpenChange }: JoinFamilyDialo
     setError(null);
 
     if (!inviteCode.trim()) {
-      setError('Bitte geben Sie einen Einladungscode ein');
+      setError("Bitte geben Sie einen Einladungscode ein");
       return;
     }
 
     try {
       await joinFamily.mutateAsync(inviteCode.trim());
-      setInviteCode('');
+      setInviteCode("");
       onOpenChange(false);
+
+      // Navigate to dashboard after successful join
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (err: any) {
-      console.error('Join family error:', err);
-      if (err.message?.includes('Invalid or expired')) {
-        setError('Ungültiger oder abgelaufener Einladungscode');
-      } else if (err.message?.includes('already used')) {
-        setError('Dieser Einladungscode wurde bereits verwendet');
+      console.error("Join project error:", err);
+      if (err.message?.includes("Invalid or expired")) {
+        setError("Ungültiger oder abgelaufener Einladungscode");
+      } else if (err.message?.includes("already used")) {
+        setError("Dieser Einladungscode wurde bereits verwendet");
       } else {
-        setError('Fehler beim Beitreten. Bitte versuchen Sie es erneut.');
+        setError("Fehler beim Beitreten. Bitte versuchen Sie es erneut.");
       }
     }
   };
 
   const handleClose = () => {
-    setInviteCode('');
+    setInviteCode("");
     setError(null);
     onOpenChange(false);
   };
@@ -52,9 +69,10 @@ export default function JoinFamilyDialog({ open, onOpenChange }: JoinFamilyDialo
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Familie beitreten</DialogTitle>
+          <DialogTitle>Projekt beitreten</DialogTitle>
           <DialogDescription>
-            Geben Sie den Einladungscode ein, den Sie von Ihrer Familie erhalten haben
+            Geben Sie den Einladungscode ein, den Sie von Ihrem Projekt erhalten
+            haben
           </DialogDescription>
         </DialogHeader>
 
@@ -92,7 +110,7 @@ export default function JoinFamilyDialog({ open, onOpenChange }: JoinFamilyDialo
               type="submit"
               disabled={joinFamily.isPending || !inviteCode.trim()}
             >
-              {joinFamily.isPending ? 'Trete bei...' : 'Beitreten'}
+              {joinFamily.isPending ? "Trete bei..." : "Beitreten"}
             </Button>
           </DialogFooter>
         </form>

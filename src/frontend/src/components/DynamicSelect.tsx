@@ -1,11 +1,23 @@
-import { useState } from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
-import { toast } from 'sonner';
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface DynamicSelectProps {
   id?: string;
@@ -25,29 +37,29 @@ export function DynamicSelect({
   onValueChange,
   options,
   onAddOption,
-  placeholder = 'Wählen...',
+  placeholder = "Wählen...",
   label,
   required = false,
   disabled = false,
 }: DynamicSelectProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newOptionValue, setNewOptionValue] = useState('');
+  const [newOptionValue, setNewOptionValue] = useState("");
 
   const handleAddOption = () => {
     const trimmed = newOptionValue.trim();
     if (!trimmed) {
-      toast.error('Bitte geben Sie einen Wert ein');
+      toast.error("Bitte geben Sie einen Wert ein");
       return;
     }
     if (options.includes(trimmed)) {
-      toast.error('Dieser Wert existiert bereits');
+      toast.error("Dieser Wert existiert bereits");
       return;
     }
     onAddOption(trimmed);
     onValueChange(trimmed);
-    setNewOptionValue('');
+    setNewOptionValue("");
     setIsAddDialogOpen(false);
-    toast.success('Erfolgreich hinzugefügt');
+    toast.success("Erfolgreich hinzugefügt");
   };
 
   return (
@@ -55,7 +67,7 @@ export function DynamicSelect({
       <div className="space-y-2">
         {label && (
           <Label htmlFor={id}>
-            {label} {required && '*'}
+            {label} {required && "*"}
           </Label>
         )}
         <Select value={value} onValueChange={onValueChange} disabled={disabled}>
@@ -84,7 +96,7 @@ export function DynamicSelect({
       </div>
 
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent 
+        <DialogContent
           className="sm:max-w-md"
           onPointerDownOutside={(e) => e.preventDefault()}
         >
@@ -103,7 +115,7 @@ export function DynamicSelect({
                 onChange={(e) => setNewOptionValue(e.target.value)}
                 placeholder="z.B. Neuer Bereich"
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     e.preventDefault();
                     handleAddOption();
                   }
@@ -111,7 +123,11 @@ export function DynamicSelect({
               />
             </div>
             <div className="flex gap-2 justify-end">
-              <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAddDialogOpen(false)}
+              >
                 Abbrechen
               </Button>
               <Button type="button" onClick={handleAddOption}>

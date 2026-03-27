@@ -1,12 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
 /**
  * Centralized Focus Manager for Modal Dialogs
- * 
+ *
  * This utility provides consistent focus management across all modal dialogs.
  * It ensures that when a dialog opens, focus is automatically set to the specified
  * input element, preventing focus loss during typing.
- * 
+ *
  * Usage:
  * ```tsx
  * const inputRef = useFocusOnMount(isDialogOpen);
@@ -22,7 +22,7 @@ import { useEffect, useRef } from 'react';
  */
 export function useFocusOnMount<T extends HTMLElement = HTMLInputElement>(
   isOpen: boolean,
-  delay: number = 100
+  delay = 100,
 ) {
   const elementRef = useRef<T>(null);
 
@@ -47,7 +47,7 @@ export function useFocusOnMount<T extends HTMLElement = HTMLInputElement>(
  */
 export function useFocusWithRestore<T extends HTMLElement = HTMLInputElement>(
   isOpen: boolean,
-  delay: number = 100
+  delay = 100,
 ) {
   const elementRef = useRef<T>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
@@ -63,7 +63,8 @@ export function useFocusWithRestore<T extends HTMLElement = HTMLInputElement>(
       }, delay);
 
       return () => clearTimeout(timeoutId);
-    } else if (previousActiveElement.current) {
+    }
+    if (previousActiveElement.current) {
       // Restore focus when dialog closes
       previousActiveElement.current.focus();
       previousActiveElement.current = null;

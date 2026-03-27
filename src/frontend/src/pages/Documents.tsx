@@ -1,52 +1,92 @@
-import { useState } from 'react';
-import { useGetAllDocuments, useUploadDocument, useDeleteDocument } from '../hooks/useQueries';
-import type { Dokument } from '../hooks/useQueries';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Progress } from '@/components/ui/progress';
-import { Skeleton } from '@/components/ui/skeleton';
-import { FileText, Plus, FolderOpen, FolderClosed, Upload, Eye, Trash2, X, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { UnifiedPDFViewer } from '../components/UnifiedPDFViewer';
-import { PDFThumbnail } from '../components/PDFThumbnail';
-import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
-import { DynamicSelect } from '../components/DynamicSelect';
-import { getDocumentBereiche, addDocumentBereich } from '../lib/customCategories';
-import { ExternalBlob } from '../backend';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Eye,
+  FileText,
+  FolderClosed,
+  FolderOpen,
+  Loader2,
+  Plus,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { ExternalBlob } from "../backend";
+import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
+import { DynamicSelect } from "../components/DynamicSelect";
+import { PDFThumbnail } from "../components/PDFThumbnail";
+import { UnifiedPDFViewer } from "../components/UnifiedPDFViewer";
+import {
+  useDeleteDocument,
+  useGetDocumentsByProject,
+  useUploadDocument,
+} from "../hooks/useQueries";
+import type { Dokument } from "../hooks/useQueries";
+import {
+  addDocumentBereich,
+  getDocumentBereiche,
+} from "../lib/customCategories";
 
-const STATUS_OPTIONS = ['Entwurf', 'In Prüfung', 'Genehmigt', 'Archiviert'];
+const STATUS_OPTIONS = ["Entwurf", "In Prüfung", "Genehmigt", "Archiviert"];
 
 interface FileUploadItem {
   file: File;
   id: string;
-  status: 'waiting' | 'uploading' | 'completed' | 'failed';
+  status: "waiting" | "uploading" | "completed" | "failed";
   progress: number;
   error?: string;
 }
 
-export default function Documents() {
-  const { data: documents = [], isLoading, isFetching: isRefetching } = useGetAllDocuments();
+export default function Documents({
+  currentProjectId,
+}: { currentProjectId?: string | null }) {
+  const {
+    data: documents = [],
+    isLoading,
+    isFetching: isRefetching,
+  } = useGetDocumentsByProject(currentProjectId ?? null);
   const uploadDocument = useUploadDocument();
   const deleteDocument = useDeleteDocument();
   const [bereiche, setBereiche] = useState<string[]>(getDocumentBereiche());
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['Architekt']));
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
+    new Set(["Architekt"]),
+  );
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [uploadQueue, setUploadQueue] = useState<FileUploadItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
-  const [viewerPdfUrl, setViewerPdfUrl] = useState('');
-  const [viewerTitle, setViewerTitle] = useState('');
+  const [viewerPdfUrl, setViewerPdfUrl] = useState("");
+  const [viewerTitle, setViewerTitle] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [documentToDelete, setDocumentToDelete] = useState<Dokument | null>(null);
+  const [documentToDelete, setDocumentToDelete] = useState<Dokument | null>(
+    null,
+  );
   const [newDocument, setNewDocument] = useState({
-    name: '',
-    bereich: 'none',
-    status: 'Entwurf',
+    name: "",
+    bereich: "none",
+    status: "Entwurf",
   });
 
   const toggleFolder = (folderId: string) => {
@@ -65,104 +105,124 @@ export default function Documents() {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    const validFiles = files.filter(file => {
-      if (file.type !== 'application/pdf') {
+    const validFiles = files.filter((file) => {
+      if (file.type !== "application/pdf") {
         toast.error(`${file.name}: Nur PDF-Dateien sind erlaubt`);
         return false;
       }
       return true;
     });
 
-    const newItems: FileUploadItem[] = validFiles.map(file => ({
+    const newItems: FileUploadItem[] = validFiles.map((file) => ({
       file,
       id: `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      status: 'waiting',
+      status: "waiting",
       progress: 0,
     }));
 
-    setUploadQueue(prev => [...prev, ...newItems]);
+    setUploadQueue((prev) => [...prev, ...newItems]);
   };
 
   const removeFromQueue = (id: string) => {
-    setUploadQueue(prev => prev.filter(item => item.id !== id));
+    setUploadQueue((prev) => prev.filter((item) => item.id !== id));
   };
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (uploadQueue.length === 0 || !newDocument.bereich || newDocument.bereich === 'none') {
-      toast.error('Bitte füllen Sie alle Pflichtfelder aus');
+    if (
+      uploadQueue.length === 0 ||
+      !newDocument.bereich ||
+      newDocument.bereich === "none"
+    ) {
+      toast.error("Bitte füllen Sie alle Pflichtfelder aus");
       return;
     }
 
     setIsUploading(true);
 
     for (const item of uploadQueue) {
-      if (item.status === 'completed') continue;
+      if (item.status === "completed") continue;
 
-      setUploadQueue(prev => prev.map(i => 
-        i.id === item.id ? { ...i, status: 'uploading', progress: 0 } : i
-      ));
+      setUploadQueue((prev) =>
+        prev.map((i) =>
+          i.id === item.id ? { ...i, status: "uploading", progress: 0 } : i,
+        ),
+      );
 
       try {
-        const documentName = newDocument.name.trim() || item.file.name.replace('.pdf', '');
-        
+        const documentName =
+          newDocument.name.trim() || item.file.name.replace(".pdf", "");
+
         // Convert File to Uint8Array
         const arrayBuffer = await item.file.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
-        
+
         // Create ExternalBlob with progress tracking
-        const blob = ExternalBlob.fromBytes(uint8Array).withUploadProgress((percentage) => {
-          setUploadQueue(prev => prev.map(i => 
-            i.id === item.id ? { ...i, progress: percentage } : i
-          ));
-        });
-        
+        const blob = ExternalBlob.fromBytes(uint8Array).withUploadProgress(
+          (percentage) => {
+            setUploadQueue((prev) =>
+              prev.map((i) =>
+                i.id === item.id ? { ...i, progress: percentage } : i,
+              ),
+            );
+          },
+        );
+
         await uploadDocument.mutateAsync({
           id: item.id,
           name: documentName,
           bereich: newDocument.bereich,
-          typ: 'PDF',
+          typ: "PDF",
           status: newDocument.status,
           blob: blob,
+          projectId: currentProjectId,
         });
 
-        setUploadQueue(prev => prev.map(i => 
-          i.id === item.id ? { ...i, status: 'completed', progress: 100 } : i
-        ));
+        setUploadQueue((prev) =>
+          prev.map((i) =>
+            i.id === item.id ? { ...i, status: "completed", progress: 100 } : i,
+          ),
+        );
       } catch (error: any) {
-        console.error('Upload error:', error);
-        setUploadQueue(prev => prev.map(i => 
-          i.id === item.id ? { ...i, status: 'failed', error: error.message } : i
-        ));
+        console.error("Upload error:", error);
+        setUploadQueue((prev) =>
+          prev.map((i) =>
+            i.id === item.id
+              ? { ...i, status: "failed", error: error.message }
+              : i,
+          ),
+        );
       }
     }
 
     setIsUploading(false);
-    
-    const allCompleted = uploadQueue.every(item => item.status === 'completed');
+
+    const allCompleted = uploadQueue.every(
+      (item) => item.status === "completed",
+    );
     if (allCompleted) {
-      setNewDocument({ name: '', bereich: 'none', status: 'Entwurf' });
+      setNewDocument({ name: "", bereich: "none", status: "Entwurf" });
       setUploadQueue([]);
       setIsUploadOpen(false);
-      toast.success('Alle Dokumente erfolgreich hochgeladen');
+      toast.success("Alle Dokumente erfolgreich hochgeladen");
     }
   };
 
   const getDocumentsByBereich = (bereichId: string): Dokument[] => {
-    return documents.filter(doc => doc.bereich === bereichId);
+    return documents.filter((doc) => doc.bereich === bereichId);
   };
 
   const handleViewDocument = async (doc: Dokument) => {
     try {
       const arrayBuffer = await doc.blob.getBytes();
-      const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+      const blob = new Blob([arrayBuffer], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       setViewerPdfUrl(url);
       setViewerTitle(doc.name);
       setViewerOpen(true);
     } catch (error) {
-      console.error('Error viewing document:', error);
-      toast.error('Fehler beim Öffnen des Dokuments');
+      console.error("Error viewing document:", error);
+      toast.error("Fehler beim Öffnen des Dokuments");
     }
   };
 
@@ -174,12 +234,12 @@ export default function Documents() {
 
   const handleDeleteConfirm = async () => {
     if (!documentToDelete) return;
-    
+
     try {
       await deleteDocument.mutateAsync(documentToDelete.id);
       setDocumentToDelete(null);
     } catch (error) {
-      console.error('Delete error:', error);
+      console.error("Delete error:", error);
     }
   };
 
@@ -188,11 +248,14 @@ export default function Documents() {
     setBereiche(getDocumentBereiche());
   };
 
-  const completedCount = uploadQueue.filter(i => i.status === 'completed').length;
-  const failedCount = uploadQueue.filter(i => i.status === 'failed').length;
-  const overallProgress = uploadQueue.length > 0 
-    ? Math.round((completedCount / uploadQueue.length) * 100)
-    : 0;
+  const completedCount = uploadQueue.filter(
+    (i) => i.status === "completed",
+  ).length;
+  const failedCount = uploadQueue.filter((i) => i.status === "failed").length;
+  const overallProgress =
+    uploadQueue.length > 0
+      ? Math.round((completedCount / uploadQueue.length) * 100)
+      : 0;
 
   // Show refresh indicator when refetching after upload
   const showRefreshIndicator = isRefetching && !isLoading;
@@ -237,7 +300,9 @@ export default function Documents() {
               {uploadQueue.length > 0 && (
                 <div className="space-y-3 border rounded-lg p-3 bg-muted/30">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Upload-Warteschlange ({uploadQueue.length})</Label>
+                    <Label className="text-sm font-medium">
+                      Upload-Warteschlange ({uploadQueue.length})
+                    </Label>
                     {!isUploading && (
                       <Button
                         type="button"
@@ -252,36 +317,49 @@ export default function Documents() {
                   </div>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {uploadQueue.map((item) => (
-                      <div key={item.id} className="flex items-center gap-2 p-2 bg-background rounded border">
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-2 p-2 bg-background rounded border"
+                      >
                         <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm truncate">{item.file.name}</p>
                           <div className="flex items-center gap-2 mt-1">
-                            <Badge 
+                            <Badge
                               variant={
-                                item.status === 'completed' ? 'default' :
-                                item.status === 'failed' ? 'destructive' :
-                                item.status === 'uploading' ? 'secondary' : 'outline'
+                                item.status === "completed"
+                                  ? "default"
+                                  : item.status === "failed"
+                                    ? "destructive"
+                                    : item.status === "uploading"
+                                      ? "secondary"
+                                      : "outline"
                               }
                               className="text-xs"
                             >
-                              {item.status === 'waiting' && 'Wartend'}
-                              {item.status === 'uploading' && `${item.progress}%`}
-                              {item.status === 'completed' && 'Fertig'}
-                              {item.status === 'failed' && 'Fehler'}
+                              {item.status === "waiting" && "Wartend"}
+                              {item.status === "uploading" &&
+                                `${item.progress}%`}
+                              {item.status === "completed" && "Fertig"}
+                              {item.status === "failed" && "Fehler"}
                             </Badge>
                             <span className="text-xs text-muted-foreground">
                               {(item.file.size / 1024 / 1024).toFixed(2)} MB
                             </span>
                           </div>
-                          {item.status === 'uploading' && (
-                            <Progress value={item.progress} className="h-1 mt-1" />
+                          {item.status === "uploading" && (
+                            <Progress
+                              value={item.progress}
+                              className="h-1 mt-1"
+                            />
                           )}
-                          {item.status === 'failed' && item.error && (
-                            <p className="text-xs text-destructive mt-1">{item.error}</p>
+                          {item.status === "failed" && item.error && (
+                            <p className="text-xs text-destructive mt-1">
+                              {item.error}
+                            </p>
                           )}
                         </div>
-                        {!isUploading && item.status !== 'completed' && (
+                        {!isUploading && item.status !== "completed" && (
                           <Button
                             type="button"
                             variant="ghost"
@@ -298,12 +376,19 @@ export default function Documents() {
                   {isUploading && (
                     <div className="space-y-2 pt-2 border-t">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Gesamtfortschritt</span>
-                        <span className="font-medium">{completedCount}/{uploadQueue.length} ({overallProgress}%)</span>
+                        <span className="text-muted-foreground">
+                          Gesamtfortschritt
+                        </span>
+                        <span className="font-medium">
+                          {completedCount}/{uploadQueue.length} (
+                          {overallProgress}%)
+                        </span>
                       </div>
                       <Progress value={overallProgress} />
                       {failedCount > 0 && (
-                        <p className="text-xs text-destructive">{failedCount} Fehler</p>
+                        <p className="text-xs text-destructive">
+                          {failedCount} Fehler
+                        </p>
                       )}
                     </div>
                   )}
@@ -315,7 +400,9 @@ export default function Documents() {
                 <Input
                   id="name"
                   value={newDocument.name}
-                  onChange={(e) => setNewDocument({ ...newDocument, name: e.target.value })}
+                  onChange={(e) =>
+                    setNewDocument({ ...newDocument, name: e.target.value })
+                  }
                   placeholder="Leer lassen für Dateinamen"
                   disabled={isUploading}
                 />
@@ -327,7 +414,9 @@ export default function Documents() {
                 id="bereich"
                 label="Bereich"
                 value={newDocument.bereich}
-                onValueChange={(value) => setNewDocument({ ...newDocument, bereich: value })}
+                onValueChange={(value) =>
+                  setNewDocument({ ...newDocument, bereich: value })
+                }
                 options={bereiche}
                 onAddOption={handleAddBereich}
                 placeholder="Bereich wählen..."
@@ -336,9 +425,11 @@ export default function Documents() {
               />
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
-                <Select 
-                  value={newDocument.status} 
-                  onValueChange={(value) => setNewDocument({ ...newDocument, status: value })}
+                <Select
+                  value={newDocument.status}
+                  onValueChange={(value) =>
+                    setNewDocument({ ...newDocument, status: value })
+                  }
                   disabled={isUploading}
                 >
                   <SelectTrigger id="status">
@@ -346,21 +437,26 @@ export default function Documents() {
                   </SelectTrigger>
                   <SelectContent>
                     {STATUS_OPTIONS.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex gap-2 justify-end">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setIsUploadOpen(false)} 
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsUploadOpen(false)}
                   disabled={isUploading}
                 >
                   Abbrechen
                 </Button>
-                <Button type="submit" disabled={isUploading || uploadQueue.length === 0}>
+                <Button
+                  type="submit"
+                  disabled={isUploading || uploadQueue.length === 0}
+                >
                   {isUploading ? (
                     <>
                       <Upload className="h-4 w-4 mr-2 animate-pulse" />
@@ -369,7 +465,9 @@ export default function Documents() {
                   ) : (
                     <>
                       <Upload className="h-4 w-4 mr-2" />
-                      {uploadQueue.length > 1 ? `${uploadQueue.length} Dateien hochladen` : 'Hochladen'}
+                      {uploadQueue.length > 1
+                        ? `${uploadQueue.length} Dateien hochladen`
+                        : "Hochladen"}
                     </>
                   )}
                 </Button>
@@ -396,6 +494,7 @@ export default function Documents() {
       {isLoading ? (
         <div className="space-y-3">
           {[...Array(5)].map((_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholders have no stable id
             <Skeleton key={i} className="h-20 w-full" />
           ))}
         </div>
@@ -404,7 +503,7 @@ export default function Documents() {
           {bereiche.map((bereich) => {
             const isExpanded = expandedFolders.has(bereich);
             const bereichDocs = getDocumentsByBereich(bereich);
-            
+
             return (
               <Card key={bereich}>
                 <CardHeader
@@ -428,23 +527,38 @@ export default function Documents() {
                     {bereichDocs.length > 0 ? (
                       <div className="space-y-2">
                         {bereichDocs.map((doc) => (
-                          <div
+                          <button
                             key={doc.id}
-                            className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer group"
+                            type="button"
+                            className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer group w-full text-left"
                             onClick={() => handleViewDocument(doc)}
                           >
                             <div className="w-16 h-16 flex-shrink-0 bg-muted rounded overflow-hidden">
-                              <PDFThumbnail pdfUrl={doc.blob.getDirectURL()} className="w-full h-full" />
+                              <PDFThumbnail
+                                pdfUrl={doc.blob.getDirectURL()}
+                                className="w-full h-full"
+                              />
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="font-medium truncate">{doc.name}</p>
                               <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="outline" className="text-xs">{doc.typ}</Badge>
-                                <Badge variant="outline" className="text-xs">{doc.status}</Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  {doc.typ}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  {doc.status}
+                                </Badge>
                               </div>
                             </div>
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleViewDocument(doc); }}>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewDocument(doc);
+                                }}
+                              >
                                 <Eye className="h-4 w-4" />
                               </Button>
                               <Button
@@ -456,7 +570,7 @@ export default function Documents() {
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
-                          </div>
+                          </button>
                         ))}
                       </div>
                     ) : (

@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar } from 'lucide-react';
-import type { Project, Task } from '../backend';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Calendar } from "lucide-react";
+import { useMemo } from "react";
+import type { Project, Task } from "../backend";
 
 interface CalendarWidgetProps {
   projects: Project[];
@@ -11,36 +11,41 @@ interface CalendarWidgetProps {
 export function CalendarWidget({ projects, tasks }: CalendarWidgetProps) {
   const upcomingEvents = useMemo(() => {
     const now = new Date();
-    const events: Array<{ type: 'project' | 'task'; name: string; date: Date; color?: string }> = [];
+    const events: Array<{
+      type: "phase" | "task";
+      name: string;
+      date: Date;
+      color?: string;
+    }> = [];
 
     // Add project start dates
-    projects.forEach((project) => {
+    for (const project of projects) {
       if (project.startDate) {
         const startDate = new Date(Number(project.startDate) / 1000000);
         if (startDate >= now) {
           events.push({
-            type: 'project',
+            type: "phase",
             name: `${project.name} starts`,
             date: startDate,
             color: project.color,
           });
         }
       }
-    });
+    }
 
     // Add task due dates
-    tasks.forEach((task) => {
+    for (const task of tasks) {
       if (task.faelligkeit) {
         const dueDate = new Date(Number(task.faelligkeit) / 1000000);
         if (dueDate >= now) {
           events.push({
-            type: 'task',
+            type: "task",
             name: task.titel,
             date: dueDate,
           });
         }
       }
-    });
+    }
 
     // Sort by date and take first 5
     return events
@@ -49,13 +54,19 @@ export function CalendarWidget({ projects, tasks }: CalendarWidgetProps) {
   }, [projects, tasks]);
 
   const formatDateTime = (date: Date) => {
-    const dateStr = date.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
-    const timeStr = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = date.toLocaleDateString("de-DE", {
+      day: "2-digit",
+      month: "short",
+    });
+    const timeStr = date.toLocaleTimeString("de-DE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
     return `${dateStr}, ${timeStr}`;
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
+    return date.toLocaleDateString("de-DE", { day: "2-digit", month: "short" });
   };
 
   return (
@@ -71,10 +82,15 @@ export function CalendarWidget({ projects, tasks }: CalendarWidgetProps) {
           <p className="text-sm text-muted-foreground">No upcoming events</p>
         ) : (
           <div className="space-y-3">
-            {upcomingEvents.map((event, index) => (
-              <div key={index} className="flex items-start gap-3">
+            {upcomingEvents.map((event) => (
+              <div
+                key={`${event.type}-${event.name}-${event.date.getTime()}`}
+                className="flex items-start gap-3"
+              >
                 <div className="text-sm font-medium text-muted-foreground min-w-20">
-                  {event.type === 'task' ? formatDateTime(event.date) : formatDate(event.date)}
+                  {event.type === "task"
+                    ? formatDateTime(event.date)
+                    : formatDate(event.date)}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
@@ -86,7 +102,9 @@ export function CalendarWidget({ projects, tasks }: CalendarWidgetProps) {
                     )}
                     <p className="text-sm font-medium">{event.name}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground capitalize">{event.type}</p>
+                  <p className="text-xs text-muted-foreground capitalize">
+                    {event.type}
+                  </p>
                 </div>
               </div>
             ))}

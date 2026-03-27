@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Calendar, CalendarRange } from 'lucide-react';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar, CalendarRange } from "lucide-react";
+import { useEffect, useState } from "react";
 
-export type TimelineMode = 'exact' | 'month';
+export type TimelineMode = "exact" | "month";
 
 export interface ProjectTimelineInputProps {
   mode: TimelineMode;

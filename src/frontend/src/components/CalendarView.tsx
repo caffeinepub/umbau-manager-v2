@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
-import type { Project, Task } from '../backend';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { useMemo, useState } from "react";
+import type { Project, Task } from "../backend";
 
 interface CalendarViewProps {
   projects: Project[];
@@ -10,7 +10,11 @@ interface CalendarViewProps {
   onTaskClick?: (taskId: string) => void;
 }
 
-export function CalendarView({ projects, tasks = [], onTaskClick }: CalendarViewProps) {
+export function CalendarView({
+  projects,
+  tasks = [],
+  onTaskClick,
+}: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const daysInMonth = useMemo(() => {
@@ -22,25 +26,25 @@ export function CalendarView({ projects, tasks = [], onTaskClick }: CalendarView
     const startingDayOfWeek = firstDay.getDay();
 
     const days: (Date | null)[] = [];
-    
+
     // Add empty cells for days before the first day of the month
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(null);
     }
-    
+
     // Add all days of the month
     for (let i = 1; i <= daysCount; i++) {
       days.push(new Date(year, month, i));
     }
-    
+
     return days;
   }, [currentDate]);
 
-  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   const getProjectsForDate = (date: Date | null) => {
     if (!date) return [];
-    
+
     return projects.filter((project) => {
       // Only include projects with both start and end dates
       if (!project.startDate || !project.endDate) {
@@ -49,7 +53,7 @@ export function CalendarView({ projects, tasks = [], onTaskClick }: CalendarView
 
       const projectStart = new Date(Number(project.startDate) / 1000000);
       const projectEnd = new Date(Number(project.endDate) / 1000000);
-      
+
       // Check if date falls within project range
       return date >= projectStart && date <= projectEnd;
     });
@@ -57,10 +61,10 @@ export function CalendarView({ projects, tasks = [], onTaskClick }: CalendarView
 
   const getTasksForDate = (date: Date | null) => {
     if (!date) return [];
-    
+
     return tasks.filter((task) => {
-      if (task.status === 'Erledigt') return false;
-      
+      if (task.status === "Erledigt") return false;
+
       const taskDate = new Date(Number(task.faelligkeit) / 1000000);
       // Compare only the date part (ignore time)
       return (
@@ -73,23 +77,33 @@ export function CalendarView({ projects, tasks = [], onTaskClick }: CalendarView
 
   const formatTaskTime = (timestamp: bigint) => {
     const date = new Date(Number(timestamp) / 1000000);
-    return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString("de-DE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   // Get projects without complete date ranges for separate display
   const undatedProjects = useMemo(() => {
-    return projects.filter(p => !p.startDate || !p.endDate);
+    return projects.filter((p) => !p.startDate || !p.endDate);
   }, [projects]);
 
   const previousMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+    setCurrentDate(
+      new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1),
+    );
   };
 
   const nextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+    setCurrentDate(
+      new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1),
+    );
   };
 
-  const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const monthName = currentDate.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
 
   return (
     <div className="space-y-4">
@@ -117,12 +131,12 @@ export function CalendarView({ projects, tasks = [], onTaskClick }: CalendarView
             {daysInMonth.map((day, index) => {
               const dayProjects = getProjectsForDate(day);
               const dayTasks = getTasksForDate(day);
-              
+
               return (
                 <div
-                  key={index}
+                  key={day ? day.toISOString() : `empty-${index}`}
                   className={`min-h-24 p-2 border rounded-lg ${
-                    day ? 'bg-background hover:bg-accent/50' : 'bg-muted/30'
+                    day ? "bg-background hover:bg-accent/50" : "bg-muted/30"
                   } transition-colors`}
                 >
                   {day && (
@@ -136,7 +150,10 @@ export function CalendarView({ projects, tasks = [], onTaskClick }: CalendarView
                           <div
                             key={project.id}
                             className="text-xs p-1 rounded truncate"
-                            style={{ backgroundColor: project.color + '20', color: project.color }}
+                            style={{
+                              backgroundColor: `${project.color}20`,
+                              color: project.color,
+                            }}
                             title={project.name}
                           >
                             {project.name}
@@ -144,19 +161,22 @@ export function CalendarView({ projects, tasks = [], onTaskClick }: CalendarView
                         ))}
                         {/* Render tasks with time */}
                         {dayTasks.slice(0, 2).map((task) => (
-                          <div
+                          <button
+                            type="button"
                             key={task.id}
                             onClick={() => onTaskClick?.(task.id)}
-                            className="text-xs p-1 rounded truncate bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors flex items-center gap-1"
+                            className="w-full text-xs p-1 rounded truncate bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors flex items-center gap-1"
                             title={`${task.titel} - ${formatTaskTime(task.faelligkeit)}`}
                           >
                             <Clock className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{formatTaskTime(task.faelligkeit)} {task.titel}</span>
-                          </div>
+                            <span className="truncate">
+                              {formatTaskTime(task.faelligkeit)} {task.titel}
+                            </span>
+                          </button>
                         ))}
-                        {(dayProjects.length + dayTasks.length) > 2 && (
+                        {dayProjects.length + dayTasks.length > 2 && (
                           <div className="text-xs text-muted-foreground">
-                            +{(dayProjects.length + dayTasks.length) - 2} more
+                            +{dayProjects.length + dayTasks.length - 2} more
                           </div>
                         )}
                       </div>
@@ -181,13 +201,20 @@ export function CalendarView({ projects, tasks = [], onTaskClick }: CalendarView
                 <div
                   key={project.id}
                   className="p-3 rounded-lg border"
-                  style={{ borderLeftColor: project.color, borderLeftWidth: '4px' }}
+                  style={{
+                    borderLeftColor: project.color,
+                    borderLeftWidth: "4px",
+                  }}
                 >
                   <div className="font-medium">{project.name}</div>
                   <div className="text-sm text-muted-foreground">
-                    {!project.startDate && !project.endDate && 'No dates set'}
-                    {project.startDate && !project.endDate && `Start: ${new Date(Number(project.startDate) / 1000000).toLocaleDateString('de-DE')}`}
-                    {!project.startDate && project.endDate && `End: ${new Date(Number(project.endDate) / 1000000).toLocaleDateString('de-DE')}`}
+                    {!project.startDate && !project.endDate && "No dates set"}
+                    {project.startDate &&
+                      !project.endDate &&
+                      `Start: ${new Date(Number(project.startDate) / 1000000).toLocaleDateString("de-DE")}`}
+                    {!project.startDate &&
+                      project.endDate &&
+                      `End: ${new Date(Number(project.endDate) / 1000000).toLocaleDateString("de-DE")}`}
                   </div>
                 </div>
               ))}

@@ -1,20 +1,35 @@
-import { useState } from 'react';
-import { useCreateInviteToken } from '../../hooks/useQueries';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Copy, Check } from 'lucide-react';
-import { toast } from 'sonner';
-import { UserRole } from '../../backend';
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Check, Copy } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { UserRole } from "../../backend";
+import { useCreateInviteToken } from "../../hooks/useQueries";
 
 interface InviteMemberDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export default function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogProps) {
+export default function InviteMemberDialog({
+  open,
+  onOpenChange,
+}: InviteMemberDialogProps) {
   const createInviteToken = useCreateInviteToken();
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.user);
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
@@ -22,14 +37,14 @@ export default function InviteMemberDialog({ open, onOpenChange }: InviteMemberD
 
   const inviteUrl = generatedToken
     ? `${window.location.origin}/apply?invite=${generatedToken}`
-    : '';
+    : "";
 
   const handleGenerateInvite = async () => {
     try {
       const token = await createInviteToken.mutateAsync(selectedRole);
       setGeneratedToken(token);
     } catch (error) {
-      console.error('Generate invite error:', error);
+      console.error("Generate invite error:", error);
     }
   };
 
@@ -37,11 +52,11 @@ export default function InviteMemberDialog({ open, onOpenChange }: InviteMemberD
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setCopied(true);
-      toast.success('Einladungslink kopiert');
+      toast.success("Einladungslink kopiert");
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      console.error('Copy error:', error);
-      toast.error('Fehler beim Kopieren');
+      console.error("Copy error:", error);
+      toast.error("Fehler beim Kopieren");
     }
   };
 
@@ -58,7 +73,8 @@ export default function InviteMemberDialog({ open, onOpenChange }: InviteMemberD
         <DialogHeader>
           <DialogTitle>Mitglied einladen</DialogTitle>
           <DialogDescription>
-            Erstellen Sie einen Einladungslink, um ein neues Mitglied hinzuzufügen
+            Erstellen Sie einen Einladungslink, um ein neues Mitglied
+            hinzuzufügen
           </DialogDescription>
         </DialogHeader>
 
@@ -67,20 +83,30 @@ export default function InviteMemberDialog({ open, onOpenChange }: InviteMemberD
             <>
               <div className="space-y-2">
                 <Label htmlFor="role">Rolle *</Label>
-                <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as UserRole)}>
+                <Select
+                  value={selectedRole}
+                  onValueChange={(value) => setSelectedRole(value as UserRole)}
+                >
                   <SelectTrigger id="role">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={UserRole.admin}>Admin</SelectItem>
-                    <SelectItem value={UserRole.user}>Member - Can Edit</SelectItem>
-                    <SelectItem value={UserRole.guest}>Viewer - Read Only</SelectItem>
+                    <SelectItem value={UserRole.user}>
+                      Member - Can Edit
+                    </SelectItem>
+                    <SelectItem value={UserRole.guest}>
+                      Viewer - Read Only
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  {selectedRole === UserRole.admin && 'Volle Berechtigung zum Verwalten von Projekten und Team'}
-                  {selectedRole === UserRole.user && 'Kann Projekte und Aufgaben bearbeiten'}
-                  {selectedRole === UserRole.guest && 'Nur Lesezugriff auf Projekte'}
+                  {selectedRole === UserRole.admin &&
+                    "Volle Berechtigung zum Verwalten von Projekten und Team"}
+                  {selectedRole === UserRole.user &&
+                    "Kann Projekte und Aufgaben bearbeiten"}
+                  {selectedRole === UserRole.guest &&
+                    "Nur Lesezugriff auf Projekte"}
                 </p>
               </div>
 
@@ -92,7 +118,9 @@ export default function InviteMemberDialog({ open, onOpenChange }: InviteMemberD
                   onClick={handleGenerateInvite}
                   disabled={createInviteToken.isPending}
                 >
-                  {createInviteToken.isPending ? 'Erstelle...' : 'Einladungslink erzeugen'}
+                  {createInviteToken.isPending
+                    ? "Erstelle..."
+                    : "Einladungslink erzeugen"}
                 </Button>
               </div>
             </>
@@ -120,14 +148,13 @@ export default function InviteMemberDialog({ open, onOpenChange }: InviteMemberD
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Teilen Sie diesen Link mit der Person, die Sie einladen möchten. Der Link kann nur einmal verwendet werden.
+                  Teilen Sie diesen Link mit der Person, die Sie einladen
+                  möchten. Der Link kann nur einmal verwendet werden.
                 </p>
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={handleClose}>
-                  Fertig
-                </Button>
+                <Button onClick={handleClose}>Fertig</Button>
               </div>
             </>
           )}

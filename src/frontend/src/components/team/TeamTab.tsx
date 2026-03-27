@@ -1,21 +1,51 @@
-import { useState } from 'react';
-import { useListTeamMembers, useIsCurrentUserAdmin, useRemoveTeamMember, useUpdateTeamMemberRole, useGetCallerUserProfile } from '../../hooks/useQueries';
-import { useInternetIdentity } from '../../hooks/useInternetIdentity';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { UserPlus, Shield, Edit, Trash2, Users } from 'lucide-react';
-import { toast } from 'sonner';
-import InviteMemberDialog from './InviteMemberDialog';
-import type { TeamMember } from '../../backend';
-import { UserRole } from '../../backend';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Principal } from "@icp-sdk/core/principal";
+import { Edit, Shield, Trash2, UserPlus, Users } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import type { TeamMember } from "../../backend";
+import { UserRole } from "../../backend";
+import { useInternetIdentity } from "../../hooks/useInternetIdentity";
+import {
+  useGetCallerUserProfile,
+  useIsCurrentUserAdmin,
+  useListTeamMembers,
+  useRemoveTeamMember,
+  useUpdateTeamMemberRole,
+} from "../../hooks/useQueries";
+import InviteMemberDialog from "./InviteMemberDialog";
 
 export default function TeamTab() {
   const { identity } = useInternetIdentity();
-  const { data: isAdmin = false, isLoading: adminLoading } = useIsCurrentUserAdmin();
-  const { data: teamMembers = [], isLoading: membersLoading } = useListTeamMembers();
+  const { data: isAdmin = false, isLoading: adminLoading } =
+    useIsCurrentUserAdmin();
+  const { data: teamMembers = [], isLoading: membersLoading } =
+    useListTeamMembers();
   const { data: userProfile } = useGetCallerUserProfile();
   const removeTeamMember = useRemoveTeamMember();
   const updateTeamMemberRole = useUpdateTeamMemberRole();
@@ -30,41 +60,43 @@ export default function TeamTab() {
   const handleRemoveMember = async () => {
     if (!removeMemberId) return;
     try {
-      await removeTeamMember.mutateAsync(removeMemberId);
+      const principal = Principal.fromText(removeMemberId);
+      await removeTeamMember.mutateAsync(principal);
       setRemoveMemberId(null);
     } catch (error) {
-      console.error('Remove member error:', error);
+      console.error("Remove member error:", error);
     }
   };
 
   const handleUpdateRole = async (memberId: string) => {
     try {
-      await updateTeamMemberRole.mutateAsync({ principal: memberId, role: newRole });
+      const principal = Principal.fromText(memberId);
+      await updateTeamMemberRole.mutateAsync({ principal, role: newRole });
       setEditingMemberId(null);
     } catch (error) {
-      console.error('Update role error:', error);
+      console.error("Update role error:", error);
     }
   };
 
   const getRoleBadgeVariant = (role: UserRole) => {
     switch (role) {
       case UserRole.admin:
-        return 'default';
+        return "default";
       case UserRole.user:
-        return 'secondary';
+        return "secondary";
       default:
-        return 'outline';
+        return "outline";
     }
   };
 
   const getRoleLabel = (role: UserRole) => {
     switch (role) {
       case UserRole.admin:
-        return 'Admin';
+        return "Admin";
       case UserRole.user:
-        return 'Member - Can Edit';
+        return "Member - Can Edit";
       case UserRole.guest:
-        return 'Viewer - Read Only';
+        return "Viewer - Read Only";
       default:
         return role;
     }
@@ -72,14 +104,14 @@ export default function TeamTab() {
 
   const getMemberName = (member: TeamMember): string => {
     const principalStr = member.principal.toString();
-    
+
     // If this is the current user and we have a profile, use the profile name
     if (principalStr === currentPrincipal && userProfile?.name) {
       return userProfile.name;
     }
-    
+
     // Otherwise show truncated principal
-    return principalStr.length > 20 
+    return principalStr.length > 20
       ? `${principalStr.slice(0, 8)}...${principalStr.slice(-8)}`
       : principalStr;
   };
@@ -130,20 +162,22 @@ export default function TeamTab() {
             <div className="text-center text-muted-foreground">
               <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>Keine Teammitglieder</p>
-              <p className="text-sm mt-2">
-                Laden Sie das erste Mitglied ein
-              </p>
+              <p className="text-sm mt-2">Laden Sie das erste Mitglied ein</p>
             </div>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {teamMembers.map((member) => {
-            const isCurrentUser = member.principal.toString() === currentPrincipal;
+            const isCurrentUser =
+              member.principal.toString() === currentPrincipal;
             const isEditing = editingMemberId === member.principal.toString();
 
             return (
-              <Card key={member.principal.toString()} className="hover:shadow-md transition-shadow">
+              <Card
+                key={member.principal.toString()}
+                className="hover:shadow-md transition-shadow"
+              >
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
@@ -160,21 +194,31 @@ export default function TeamTab() {
                           <div className="flex items-center gap-2">
                             <Select
                               value={newRole}
-                              onValueChange={(value) => setNewRole(value as UserRole)}
+                              onValueChange={(value) =>
+                                setNewRole(value as UserRole)
+                              }
                             >
                               <SelectTrigger className="h-8 text-xs">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value={UserRole.admin}>Admin</SelectItem>
-                                <SelectItem value={UserRole.user}>Member - Can Edit</SelectItem>
-                                <SelectItem value={UserRole.guest}>Viewer - Read Only</SelectItem>
+                                <SelectItem value={UserRole.admin}>
+                                  Admin
+                                </SelectItem>
+                                <SelectItem value={UserRole.user}>
+                                  Member - Can Edit
+                                </SelectItem>
+                                <SelectItem value={UserRole.guest}>
+                                  Viewer - Read Only
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleUpdateRole(member.principal.toString())}
+                              onClick={() =>
+                                handleUpdateRole(member.principal.toString())
+                              }
                               disabled={updateTeamMemberRole.isPending}
                             >
                               Speichern
@@ -209,7 +253,9 @@ export default function TeamTab() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => setRemoveMemberId(member.principal.toString())}
+                          onClick={() =>
+                            setRemoveMemberId(member.principal.toString())
+                          }
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -235,12 +281,16 @@ export default function TeamTab() {
       />
 
       {/* Remove Member Confirmation */}
-      <AlertDialog open={!!removeMemberId} onOpenChange={(open) => !open && setRemoveMemberId(null)}>
+      <AlertDialog
+        open={!!removeMemberId}
+        onOpenChange={(open) => !open && setRemoveMemberId(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Mitglied entfernen?</AlertDialogTitle>
             <AlertDialogDescription>
-              Sind Sie sicher, dass Sie dieses Mitglied aus dem Team entfernen möchten? Diese Aktion kann nicht rückgängig gemacht werden.
+              Sind Sie sicher, dass Sie dieses Mitglied aus dem Team entfernen
+              möchten? Diese Aktion kann nicht rückgängig gemacht werden.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

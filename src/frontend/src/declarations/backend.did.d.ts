@@ -100,6 +100,7 @@ export interface Project {
   'color' : string,
   'verantwortlicherKontakt' : [] | [ContactId],
   'kategorie' : string,
+  'parentProjectId' : [] | [ProjectId],
   'kunde' : string,
   'startDate' : [] | [Time],
 }
@@ -203,6 +204,7 @@ export interface _SERVICE {
       string,
       [] | [ContactId],
       Array<CostItem>,
+      [] | [ProjectId],
     ],
     undefined
   >,
@@ -237,6 +239,7 @@ export interface _SERVICE {
   'getAllProjects' : ActorMethod<[], Array<Project>>,
   'getAllRSVPs' : ActorMethod<[], Array<RSVP>>,
   'getAllTasks' : ActorMethod<[], Array<Task>>,
+  'getAllUserProjects' : ActorMethod<[], Array<[ProjectId, Project]>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getContact' : ActorMethod<[ContactId], Contact>,
@@ -245,10 +248,15 @@ export interface _SERVICE {
   'getInviteCodes' : ActorMethod<[], Array<InviteCode>>,
   'getKostenUebersicht' : ActorMethod<[[] | [ProjectId]], KostenUebersicht>,
   'getKostenpunkteByProjekt' : ActorMethod<[ProjectId], Array<CostItem>>,
+  'getPhasesByProject' : ActorMethod<[ProjectId], Array<Project>>,
   'getProjekt' : ActorMethod<[ProjectId], Project>,
   'getTask' : ActorMethod<[TaskId], Task>,
+  'getTopLevelProjects' : ActorMethod<[], Array<Project>>,
   'getUserDocuments' : ActorMethod<[], Array<Document>>,
   'getUserMedia' : ActorMethod<[], Array<Media>>,
+  'getMediaByProject' : ActorMethod<[ProjectId], Array<Media>>,
+  'getTasksByProject' : ActorMethod<[ProjectId], Array<Task>>,
+  'getDocumentsByProject' : ActorMethod<[ProjectId], Array<Document>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'initializeAccessControl' : ActorMethod<[], undefined>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
@@ -311,11 +319,11 @@ export interface _SERVICE {
   >,
   'updateTeamMemberRole' : ActorMethod<[Principal, UserRole], undefined>,
   'uploadDocumentWithPDF' : ActorMethod<
-    [string, string, Bereich, string, string, ExternalBlob],
+    [string, string, Bereich, string, string, ExternalBlob, [] | [ProjectId]],
     undefined
   >,
   'uploadMedia' : ActorMethod<
-    [string, string, string, string, bigint, Array<string>, ExternalBlob],
+    [string, string, string, string, bigint, Array<string>, ExternalBlob, [] | [ProjectId]],
     undefined
   >,
   'validateInviteCode' : ActorMethod<[string], undefined>,

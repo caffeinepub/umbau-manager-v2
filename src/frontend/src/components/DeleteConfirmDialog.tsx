@@ -7,7 +7,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
 
 interface DeleteConfirmDialogProps {
   open: boolean;
@@ -49,12 +49,12 @@ export function DeleteConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending}>Abbrechen</AlertDialogCancel>
-          <AlertDialogAction 
-            onClick={handleConfirm} 
+          <AlertDialogAction
+            onClick={handleConfirm}
             disabled={isPending}
             className="bg-destructive hover:bg-destructive/90"
           >
-            {isPending ? 'Wird gelöscht...' : 'Löschen'}
+            {isPending ? "Wird gelöscht..." : "Löschen"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -1,4 +1,3 @@
-import { ReactNode } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -6,7 +5,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
+import type { ReactNode } from "react";
 
 interface BaseDialogProps {
   open: boolean;
@@ -16,18 +16,18 @@ interface BaseDialogProps {
   children: ReactNode;
   trigger?: ReactNode;
   className?: string;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl";
 }
 
 /**
  * BaseDialog Component
- * 
+ *
  * A standardized dialog component that provides consistent behavior across the app:
  * - Prevents accidental closes when clicking outside
  * - Provides consistent styling and structure
  * - Handles scrolling for long content
  * - Integrates with FocusManager for stable focus behavior
- * 
+ *
  * Usage:
  * ```tsx
  * <BaseDialog
@@ -48,21 +48,21 @@ export function BaseDialog({
   children,
   trigger,
   className,
-  maxWidth = 'lg',
+  maxWidth = "lg",
 }: BaseDialogProps) {
   const maxWidthClass = {
-    sm: 'sm:max-w-sm',
-    md: 'sm:max-w-md',
-    lg: 'sm:max-w-lg',
-    xl: 'sm:max-w-xl',
-    '2xl': 'sm:max-w-2xl',
+    sm: "sm:max-w-sm",
+    md: "sm:max-w-md",
+    lg: "sm:max-w-lg",
+    xl: "sm:max-w-xl",
+    "2xl": "sm:max-w-2xl",
   }[maxWidth];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent
-        className={`${maxWidthClass} max-h-[90vh] overflow-y-auto ${className || ''}`}
+        className={`${maxWidthClass} max-h-[90vh] overflow-y-auto ${className || ""}`}
         onPointerDownOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>

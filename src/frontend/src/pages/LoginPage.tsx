@@ -1,12 +1,18 @@
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, Shield, Zap } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Building2, Shield, Zap } from "lucide-react";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
 export default function LoginPage() {
   const { login, loginStatus } = useInternetIdentity();
 
-  const isLoggingIn = loginStatus === 'logging-in';
+  const isLoggingIn = loginStatus === "logging-in";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/10 flex items-center justify-center p-4">
@@ -27,7 +33,9 @@ export default function LoginPage() {
                 <Building2 className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold mb-1">Zentrale Projektverwaltung</h3>
+                <h3 className="font-semibold mb-1">
+                  Zentrale Projektverwaltung
+                </h3>
                 <p className="text-sm text-muted-foreground">
                   Verwalten Sie alle Phasen, Aufgaben und Dokumente an einem Ort
                 </p>
@@ -41,7 +49,8 @@ export default function LoginPage() {
               <div>
                 <h3 className="font-semibold mb-1">Effiziente Workflows</h3>
                 <p className="text-sm text-muted-foreground">
-                  Kanban-Board, Timeline und intelligente Filterung für maximale Produktivität
+                  Kanban-Board, Timeline und intelligente Filterung für maximale
+                  Produktivität
                 </p>
               </div>
             </div>
@@ -53,7 +62,8 @@ export default function LoginPage() {
               <div>
                 <h3 className="font-semibold mb-1">Sichere Datenhaltung</h3>
                 <p className="text-sm text-muted-foreground">
-                  Ihre Daten werden sicher auf der Internet Computer Blockchain gespeichert
+                  Ihre Daten werden sicher auf der Internet Computer Blockchain
+                  gespeichert
                 </p>
               </div>
             </div>
@@ -80,7 +90,7 @@ export default function LoginPage() {
                   Anmeldung läuft...
                 </>
               ) : (
-                'Mit Internet Identity anmelden'
+                "Mit Internet Identity anmelden"
               )}
             </Button>
 

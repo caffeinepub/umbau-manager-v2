@@ -1,15 +1,27 @@
-import { useState } from 'react';
-import { useSaveCallerUserProfile } from '../hooks/useQueries';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useState } from "react";
+import { useSaveCallerUserProfile } from "../hooks/useQueries";
 
 export default function ProfileSetupModal() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [userType, setUserType] = useState<'privat' | 'business'>('privat');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [userType, setUserType] = useState<"privat" | "business">("privat");
   const saveProfile = useSaveCallerUserProfile();
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -18,7 +30,7 @@ export default function ProfileSetupModal() {
       saveProfile.mutate({
         name: name.trim(),
         email: email.trim(),
-        role: 'user',
+        role: "user",
         userType: { [userType]: null } as any,
       });
     }
@@ -26,7 +38,10 @@ export default function ProfileSetupModal() {
 
   return (
     <Dialog open={true}>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent
+        className="sm:max-w-md"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Profil einrichten</DialogTitle>
           <DialogDescription>
@@ -57,7 +72,12 @@ export default function ProfileSetupModal() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="userType">Nutzertyp *</Label>
-            <Select value={userType} onValueChange={(value: 'privat' | 'business') => setUserType(value)}>
+            <Select
+              value={userType}
+              onValueChange={(value: "privat" | "business") =>
+                setUserType(value)
+              }
+            >
               <SelectTrigger id="userType">
                 <SelectValue />
               </SelectTrigger>
@@ -67,9 +87,9 @@ export default function ProfileSetupModal() {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              {userType === 'privat' 
-                ? 'Für private Renovierungsprojekte' 
-                : 'Für geschäftliche Bauprojekte'}
+              {userType === "privat"
+                ? "Für private Renovierungsprojekte"
+                : "Für geschäftliche Bauprojekte"}
             </p>
           </div>
           <Button
@@ -77,7 +97,7 @@ export default function ProfileSetupModal() {
             className="w-full"
             disabled={!name.trim() || saveProfile.isPending}
           >
-            {saveProfile.isPending ? 'Wird gespeichert...' : 'Profil speichern'}
+            {saveProfile.isPending ? "Wird gespeichert..." : "Profil speichern"}
           </Button>
         </form>
       </DialogContent>

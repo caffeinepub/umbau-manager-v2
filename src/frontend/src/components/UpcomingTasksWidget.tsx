@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Clock, Calendar } from 'lucide-react';
-import type { Task, Project } from '../backend';
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Calendar, Clock } from "lucide-react";
+import { useMemo } from "react";
+import type { Project, Task } from "../backend";
 
 interface UpcomingTasksWidgetProps {
   tasks: Task[];
@@ -10,10 +10,14 @@ interface UpcomingTasksWidgetProps {
   onTaskClick: (taskId: string) => void;
 }
 
-export function UpcomingTasksWidget({ tasks, projects = [], onTaskClick }: UpcomingTasksWidgetProps) {
+export function UpcomingTasksWidget({
+  tasks,
+  projects = [],
+  onTaskClick,
+}: UpcomingTasksWidgetProps) {
   const upcomingTasks = useMemo(() => {
     // Filter out completed tasks and sort by due date
-    const openTasks = tasks.filter(t => t.status !== 'Erledigt');
+    const openTasks = tasks.filter((t) => t.status !== "Erledigt");
     return openTasks
       .sort((a, b) => Number(a.faelligkeit - b.faelligkeit))
       .slice(0, 7); // Show max 7 tasks
@@ -21,22 +25,29 @@ export function UpcomingTasksWidget({ tasks, projects = [], onTaskClick }: Upcom
 
   const formatDateTime = (timestamp: bigint) => {
     const date = new Date(Number(timestamp) / 1000000);
-    const dateStr = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const timeStr = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = date.toLocaleDateString("de-DE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+    const timeStr = date.toLocaleTimeString("de-DE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
     return { dateStr, timeStr };
   };
 
   const getProjectName = (projectId?: string) => {
     if (!projectId) return null;
-    const project = projects.find(p => p.id === projectId);
+    const project = projects.find((p) => p.id === projectId);
     return project?.name;
   };
 
   const getDringlichkeitColor = (dringlichkeit: bigint) => {
     const level = Number(dringlichkeit);
-    if (level === 3) return 'bg-red-500';
-    if (level === 2) return 'bg-orange-500';
-    return 'bg-green-500';
+    if (level === 3) return "bg-red-500";
+    if (level === 2) return "bg-orange-500";
+    return "bg-green-500";
   };
 
   return (
@@ -60,15 +71,20 @@ export function UpcomingTasksWidget({ tasks, projects = [], onTaskClick }: Upcom
               const projectName = getProjectName(task.projectId);
 
               return (
-                <div
+                <button
+                  type="button"
                   key={task.id}
                   onClick={() => onTaskClick(task.id)}
-                  className="flex items-start gap-3 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors"
+                  className="w-full text-left flex items-start gap-3 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors"
                 >
-                  <div className={`w-1 h-full rounded-full ${getDringlichkeitColor(task.dringlichkeit)}`} />
+                  <div
+                    className={`w-1 h-full rounded-full ${getDringlichkeitColor(task.dringlichkeit)}`}
+                  />
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium text-sm truncate">{task.titel}</p>
+                      <p className="font-medium text-sm truncate">
+                        {task.titel}
+                      </p>
                       <Badge variant="outline" className="shrink-0 text-xs">
                         {task.kategorie}
                       </Badge>
@@ -85,11 +101,11 @@ export function UpcomingTasksWidget({ tasks, projects = [], onTaskClick }: Upcom
                     </div>
                     {projectName && (
                       <p className="text-xs text-muted-foreground truncate">
-                        Projekt: {projectName}
+                        Phase: {projectName}
                       </p>
                     )}
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

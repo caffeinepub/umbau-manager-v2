@@ -1,51 +1,51 @@
 // Local storage keys for custom categories
 const STORAGE_KEYS = {
-  GEWERKE: 'custom_gewerke',
-  BEREICHE: 'custom_bereiche',
-  KATEGORIEN: 'custom_kategorien',
-  MEDIA_KATEGORIEN: 'custom_media_kategorien',
-  DOCUMENT_BEREICHE: 'custom_document_bereiche',
+  GEWERKE: "custom_gewerke",
+  BEREICHE: "custom_bereiche",
+  KATEGORIEN: "custom_kategorien",
+  MEDIA_KATEGORIEN: "custom_media_kategorien",
+  DOCUMENT_BEREICHE: "custom_document_bereiche",
 };
 
 // Default values
 export const DEFAULT_GEWERKE = [
-  'Architekt',
-  'Elektriker',
-  'Heizung',
-  'Sanitär',
-  'Maler',
-  'Zimmermann',
-  'Dachdecker',
+  "Architekt",
+  "Elektriker",
+  "Heizung",
+  "Sanitär",
+  "Maler",
+  "Zimmermann",
+  "Dachdecker",
 ];
 
 export const DEFAULT_BEREICHE = [
-  'Planung',
-  'Ausführung',
-  'Abnahme',
-  'Dokumentation',
+  "Planung",
+  "Ausführung",
+  "Abnahme",
+  "Dokumentation",
 ];
 
 export const DEFAULT_KATEGORIEN = [
-  'Energie',
-  'Orga',
-  'Dach',
-  'Fassade',
-  'Innenausbau',
+  "Energie",
+  "Orga",
+  "Dach",
+  "Fassade",
+  "Innenausbau",
 ];
 
 export const DEFAULT_MEDIA_KATEGORIEN = [
-  'Pläne',
-  'Fotos',
-  'Visualisierungen',
-  'Sonstiges',
+  "Pläne",
+  "Fotos",
+  "Visualisierungen",
+  "Sonstiges",
 ];
 
 export const DEFAULT_DOCUMENT_BEREICHE = [
-  'Architekt',
-  'Statik',
-  'Bauantrag',
-  'Verträge',
-  'Rechnungen',
+  "Architekt",
+  "Statik",
+  "Bauantrag",
+  "Verträge",
+  "Rechnungen",
 ];
 
 // Helper functions to manage custom categories
@@ -57,7 +57,7 @@ function getStoredCategories(key: string, defaults: string[]): string[] {
       return Array.isArray(parsed) ? parsed : defaults;
     }
   } catch (error) {
-    console.error('Error loading custom categories:', error);
+    console.error("Error loading custom categories:", error);
   }
   return defaults;
 }
@@ -66,7 +66,7 @@ function saveCategories(key: string, categories: string[]): void {
   try {
     localStorage.setItem(key, JSON.stringify(categories));
   } catch (error) {
-    console.error('Error saving custom categories:', error);
+    console.error("Error saving custom categories:", error);
   }
 }
 
@@ -108,7 +108,10 @@ export function addKategorie(newKategorie: string): void {
 
 // Media Kategorien management
 export function getMediaKategorien(): string[] {
-  return getStoredCategories(STORAGE_KEYS.MEDIA_KATEGORIEN, DEFAULT_MEDIA_KATEGORIEN);
+  return getStoredCategories(
+    STORAGE_KEYS.MEDIA_KATEGORIEN,
+    DEFAULT_MEDIA_KATEGORIEN,
+  );
 }
 
 export function addMediaKategorie(newKategorie: string): void {
@@ -120,7 +123,10 @@ export function addMediaKategorie(newKategorie: string): void {
 
 // Document Bereiche management
 export function getDocumentBereiche(): string[] {
-  return getStoredCategories(STORAGE_KEYS.DOCUMENT_BEREICHE, DEFAULT_DOCUMENT_BEREICHE);
+  return getStoredCategories(
+    STORAGE_KEYS.DOCUMENT_BEREICHE,
+    DEFAULT_DOCUMENT_BEREICHE,
+  );
 }
 
 export function addDocumentBereich(newBereich: string): void {

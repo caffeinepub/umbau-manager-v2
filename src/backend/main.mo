@@ -10,7 +10,9 @@ import AccessControl "authorization/access-control";
 import Storage "blob-storage/Storage";
 import MixinStorage "blob-storage/Mixin";
 import InviteLinksModule "invite-links/invite-links-module";
+
 import Random "mo:core/Random";
+
 
 actor {
   include MixinStorage();
@@ -36,6 +38,7 @@ actor {
     endDate : ?Time.Time;
     kategorie : Text;
     verantwortlicherKontakt : ?ContactId;
+    parentProjectId : ?ProjectId;
     owner : Principal;
   };
   public type Task = {
@@ -135,7 +138,6 @@ actor {
     role : AccessControl.UserRole;
   };
 
-  // Added InviteCode to store invite code data
   public type InviteCode = {
     code : Text;
     role : AccessControl.UserRole;
@@ -152,10 +154,14 @@ actor {
   var customCategoriesStore = Map.empty<Principal, Map.Map<TextValue, Map.Map<TextValue, TextValue>>>();
   var costItems = Map.empty<Principal, Map.Map<ProjectId, [CostItem]>>();
   var inviteTokens = Map.empty<InviteToken, ?AccessControl.UserRole>();
+  var inviteOwners = Map.empty<InviteToken, Principal>();
+  var projectSharing = Map.empty<Principal, Principal>();
   var teamMembers = Map.empty<Principal, AccessControl.UserRole>();
   let inviteState = InviteLinksModule.initState();
 
-  // Added codesMap to store invite codes
+  var documentProjectMap = Map.empty<DocumentId, ProjectId>();
+  var mediaProjectMap = Map.empty<MediaId, ProjectId>();
+
   var codesMap = Map.empty<Text, InviteCode>();
 
   func getUserData<T>(user : Principal, map : Map.Map<Principal, Map.Map<Text, T>>) : Map.Map<Text, T> {
@@ -168,6 +174,7 @@ actor {
       case (?userMap) { userMap };
     };
   };
+
   func getUserProjects(user : Principal) : Map.Map<ProjectId, Project> {
     getUserData<Project>(user, projects);
   };
@@ -196,6 +203,16 @@ actor {
       case (?userSet) { userSet };
     };
   };
+  // Returns the principal to use for data lookups.
+  // Invited users (those with a projectSharing entry) see the inviter's data.
+  func effectiveOwner(caller : Principal) : Principal {
+    switch (projectSharing.get(caller)) {
+      case (?owner) { owner };
+      case (null) { caller };
+    };
+  };
+
+
   func getUserCustomCategories(user : Principal) : Map.Map<TextValue, Map.Map<TextValue, TextValue>> {
     switch (customCategoriesStore.get(user)) {
       case (null) {
@@ -233,7 +250,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can create tasks");
     };
-    let userTasks = getUserTasks(caller);
+    let userTasks = getUserTasks(effectiveOwner(caller));
     let task : Task = {
       id;
       titel;
@@ -246,7 +263,7 @@ actor {
       kategorie;
       verantwortlicherKontakt;
       projectId;
-      owner = caller;
+      owner = effectiveOwner(caller);
     };
     if (userTasks.containsKey(id)) {
       Run.trap("Task already exists");
@@ -268,7 +285,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can create contacts");
     };
-    let userContacts = getUserContacts(caller);
+    let userContacts = getUserContacts(effectiveOwner(caller));
     let contact : Contact = {
       id;
       name;
@@ -279,7 +296,7 @@ actor {
       notizen;
       verknuepfteTasks;
       verknuepfteDokumente;
-      owner = caller;
+      owner = effectiveOwner(caller);
     };
     if (userContacts.containsKey(id)) {
       Run.trap("Contact already exists");
@@ -298,7 +315,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can create links");
     };
-    let userLinks = getUserLinks(caller);
+    let userLinks = getUserLinks(effectiveOwner(caller));
     let link : HelpfulLink = {
       id;
       titel;
@@ -306,7 +323,7 @@ actor {
       url;
       kategorie;
       logoUrl;
-      owner = caller;
+      owner = effectiveOwner(caller);
     };
     if (userLinks.containsKey(id)) {
       Run.trap("Link already exists");
@@ -318,7 +335,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view tasks");
     };
-    let userTasks = getUserTasks(caller);
+    let userTasks = getUserTasks(effectiveOwner(caller));
     switch (userTasks.get(taskId)) {
       case (null) {
         Run.trap("Task not found");
@@ -336,7 +353,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view contacts");
     };
-    let userContacts = getUserContacts(caller);
+    let userContacts = getUserContacts(effectiveOwner(caller));
     switch (userContacts.get(contactId)) {
       case (null) {
         Run.trap("Contact not found");
@@ -354,7 +371,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view links");
     };
-    let userLinks = getUserLinks(caller);
+    let userLinks = getUserLinks(effectiveOwner(caller));
     switch (userLinks.get(linkId)) {
       case (null) {
         Run.trap("Link not found");
@@ -372,21 +389,21 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view tasks");
     };
-    getUserTasks(caller).values().toArray();
+    getUserTasks(effectiveOwner(caller)).values().toArray();
   };
 
   public query ({ caller }) func getAllContacts() : async [Contact] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view contacts");
     };
-    getUserContacts(caller).values().toArray();
+    getUserContacts(effectiveOwner(caller)).values().toArray();
   };
 
   public query ({ caller }) func getAllHelpfulLinks() : async [HelpfulLink] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view links");
     };
-    getUserLinks(caller).values().toArray();
+    getUserLinks(effectiveOwner(caller)).values().toArray();
   };
 
   public shared ({ caller }) func updateTask(
@@ -405,7 +422,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can update tasks");
     };
-    let userTasks = getUserTasks(caller);
+    let userTasks = getUserTasks(effectiveOwner(caller));
     switch (userTasks.get(id)) {
       case (null) {
         Run.trap("Task not found");
@@ -447,7 +464,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can update contacts");
     };
-    let userContacts = getUserContacts(caller);
+    let userContacts = getUserContacts(effectiveOwner(caller));
     switch (userContacts.get(id)) {
       case (null) {
         Run.trap("Contact not found");
@@ -484,7 +501,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can update links");
     };
-    let userLinks = getUserLinks(caller);
+    let userLinks = getUserLinks(effectiveOwner(caller));
     switch (userLinks.get(id)) {
       case (null) { Run.trap("Link not found") };
       case (?existingLink) {
@@ -509,7 +526,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can delete tasks");
     };
-    let userTasks = getUserTasks(caller);
+    let userTasks = getUserTasks(effectiveOwner(caller));
     switch (userTasks.get(taskId)) {
       case (null) {
         Run.trap("Task not found");
@@ -527,7 +544,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can delete contacts");
     };
-    let userContacts = getUserContacts(caller);
+    let userContacts = getUserContacts(effectiveOwner(caller));
     switch (userContacts.get(contactId)) {
       case (null) { Run.trap("Contact not found") };
       case (?contact) {
@@ -543,7 +560,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can delete links");
     };
-    let userLinks = getUserLinks(caller);
+    let userLinks = getUserLinks(effectiveOwner(caller));
     switch (userLinks.get(linkId)) {
       case (null) { Run.trap("Link not found") };
       case (?link) {
@@ -572,8 +589,11 @@ actor {
   };
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Run.trap("Unauthorized: Only users can access profiles");
+    // Return null for unregistered users instead of throwing, so new users can reach profile setup
+    if (caller.isAnonymous()) { return null };
+    switch (accessControlState.userRoles.get(caller)) {
+      case (null) { return null };
+      case (?_) {};
     };
     userProfiles.get(caller);
   };
@@ -586,9 +606,8 @@ actor {
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Run.trap("Unauthorized: Only users can save profiles");
-    };
+    // Auto-initialize new users so they can save their profile on first login
+    AccessControl.initialize(accessControlState, caller);
     userProfiles.add(caller, profile);
   };
 
@@ -600,11 +619,12 @@ actor {
     position : Int,
     tags : [Text],
     blob : Storage.ExternalBlob,
+    projectId : ?ProjectId,
   ) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can upload media");
     };
-    let userMedia = getUserMediaInternal(caller);
+    let userMedia = getUserMediaInternal(effectiveOwner(caller));
     let mediaItem : Media = {
       id;
       name;
@@ -613,19 +633,24 @@ actor {
       position;
       tags;
       blob;
-      owner = caller;
+      owner = effectiveOwner(caller);
     };
     if (userMedia.containsKey(id)) {
       Run.trap("Medien-Duplikation: Medienobjekt mit dieser ID existiert bereits");
     };
     userMedia.add(id, mediaItem);
+    // Store project association in separate map
+    switch (projectId) {
+      case (?pid) { mediaProjectMap.add(id, pid) };
+      case (null) {};
+    };
   };
 
   public shared ({ caller }) func bulkUpdateMediaPositions(updates : [MediaPositionUpdate]) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can update media positions");
     };
-    let userMedia = getUserMediaInternal(caller);
+    let userMedia = getUserMediaInternal(effectiveOwner(caller));
     for (update in updates.values()) {
       switch (userMedia.get(update.mediaId)) {
         case (null) { Run.trap("Media with id " # update.mediaId # " not found") };
@@ -644,7 +669,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can delete media");
     };
-    let userMedia = getUserMediaInternal(caller);
+    let userMedia = getUserMediaInternal(effectiveOwner(caller));
     switch (userMedia.get(mediaId)) {
       case (null) {
         Run.trap("Media with id " # mediaId # " not found");
@@ -662,7 +687,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can update media");
     };
-    let userMedia = getUserMediaInternal(caller);
+    let userMedia = getUserMediaInternal(effectiveOwner(caller));
     switch (userMedia.get(id)) {
       case (null) {
         Run.trap("Media with id " # id # " not found");
@@ -691,11 +716,12 @@ actor {
     typ : Text,
     status : Text,
     blob : Storage.ExternalBlob,
+    projectId : ?ProjectId,
   ) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can upload documents");
     };
-    let userDocuments = getUserDocumentsInternal(caller);
+    let userDocuments = getUserDocumentsInternal(effectiveOwner(caller));
     let document : Document = {
       id;
       name;
@@ -703,19 +729,24 @@ actor {
       typ;
       status;
       blob;
-      owner = caller;
+      owner = effectiveOwner(caller);
     };
     if (userDocuments.containsKey(id)) {
       Run.trap("Dokumenten-Duplikation: Dokument mit dieser ID existiert bereits");
     };
     userDocuments.add(id, document);
+    // Store project association in separate map
+    switch (projectId) {
+      case (?pid) { documentProjectMap.add(id, pid) };
+      case (null) {};
+    };
   };
 
   public shared ({ caller }) func deleteDocument(documentId : DocumentId) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can delete documents");
     };
-    let userDocuments = getUserDocumentsInternal(caller);
+    let userDocuments = getUserDocumentsInternal(effectiveOwner(caller));
     switch (userDocuments.get(documentId)) {
       case (null) {
         Run.trap("Document not found");
@@ -739,11 +770,11 @@ actor {
     kategorie : Text,
     verantwortlicherKontakt : ?ContactId,
     costItemsArray : [CostItem],
+    parentProjectId : ?ProjectId,
   ) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Run.trap("Unauthorized: Only users can create projects");
-    };
-    let userProjects = getUserProjects(caller);
+    // Auto-initialize new users on first project creation
+    AccessControl.initialize(accessControlState, caller);
+    let userProjects = getUserProjects(effectiveOwner(caller));
     let userProfile = switch (userProfiles.get(caller)) {
       case (?profile) { ?profile };
       case (null) { null };
@@ -775,15 +806,17 @@ actor {
       endDate = end;
       kategorie;
       verantwortlicherKontakt;
-      owner = caller;
+      parentProjectId;
+      owner = effectiveOwner(caller);
     };
     if (userProjects.containsKey(id)) {
       Run.trap("Projekt mit dieser ID existiert bereits");
     };
     userProjects.add(id, projekt);
-    let userCostItems = getUserCostItems(caller);
+
+    let userCostItems = getUserCostItems(effectiveOwner(caller));
     let validatedCostItems = costItemsArray.map(func(item : CostItem) : CostItem {
-      { item with owner = caller; projektId = id };
+      { item with owner = effectiveOwner(caller); projektId = id };
     });
     userCostItems.add(id, validatedCostItems);
   };
@@ -792,13 +825,13 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view projects");
     };
-    let userProjects = getUserProjects(caller);
+    let userProjects = getUserProjects(effectiveOwner(caller));
     switch (userProjects.get(id)) {
       case (null) {
         Run.trap("Kein Projekt mit dieser ID gefunden");
       };
       case (?projekt) {
-        if (projekt.owner != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (projekt.owner != effectiveOwner(caller) and not AccessControl.isAdmin(accessControlState, caller)) {
           Run.trap("Unauthorized: You can only view your own projects");
         };
         projekt;
@@ -810,7 +843,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view projects");
     };
-    getUserProjects(caller).values().toArray();
+    getUserProjects(effectiveOwner(caller)).values().toArray();
   };
 
   public shared ({ caller }) func updateProjekt(
@@ -827,13 +860,13 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can update projects");
     };
-    let userProjects = getUserProjects(caller);
+    let userProjects = getUserProjects(effectiveOwner(caller));
     switch (userProjects.get(id)) {
       case (null) {
         Run.trap("Kein Projekt mit dieser ID gefunden");
       };
       case (?existingProjekt) {
-        if (existingProjekt.owner != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (existingProjekt.owner != effectiveOwner(caller) and not AccessControl.isAdmin(accessControlState, caller)) {
           Run.trap("Unauthorized: You can only update your own projects");
         };
         let userProfile = switch (userProfiles.get(caller)) {
@@ -867,10 +900,12 @@ actor {
           endDate = end;
           kategorie;
           verantwortlicherKontakt;
+          parentProjectId = existingProjekt.parentProjectId;
           owner = existingProjekt.owner;
         };
         userProjects.add(id, updatedProjekt);
-        let userCostItems = getUserCostItems(caller);
+
+        let userCostItems = getUserCostItems(effectiveOwner(caller));
         let validatedCostItems = costItemsArray.map(func(item : CostItem) : CostItem {
           { item with owner = existingProjekt.owner; projektId = id };
         });
@@ -883,18 +918,51 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can delete projects");
     };
-    let userProjects = getUserProjects(caller);
+    let userProjects = getUserProjects(effectiveOwner(caller));
     switch (userProjects.get(id)) {
       case (null) {
-        Run.trap("Kein Projekt mit dieser ID gefunden");
+        Run.trap("Kein Projekt mit dieser ID existiert bereits");
       };
       case (?projekt) {
-        if (projekt.owner != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (projekt.owner != effectiveOwner(caller) and not AccessControl.isAdmin(accessControlState, caller)) {
           Run.trap("Unauthorized: You can only delete your own projects");
         };
         userProjects.remove(id);
-        let userCostItems = getUserCostItems(caller);
+        let userCostItems = getUserCostItems(effectiveOwner(caller));
         userCostItems.remove(id);
+      };
+    };
+  };
+
+  public query ({ caller }) func getTopLevelProjects() : async [Project] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Run.trap("Unauthorized: Only users can access projects");
+    };
+    let userProjects = getUserProjects(effectiveOwner(caller));
+    userProjects.values().toArray().filter(func(project) { project.parentProjectId == null });
+  };
+
+  public query ({ caller }) func getPhasesByProject(parentId : ProjectId) : async [Project] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Run.trap("Unauthorized: Only users can access projects");
+    };
+    let userProjects = getUserProjects(effectiveOwner(caller));
+    switch (userProjects.get(parentId)) {
+      case (null) {
+        Run.trap("Parent project not found or unauthorized");
+      };
+      case (?parentProject) {
+        if (parentProject.owner != effectiveOwner(caller) and not AccessControl.isAdmin(accessControlState, caller)) {
+          Run.trap("Unauthorized: You can only view phases of your own projects");
+        };
+        userProjects.values().toArray().filter(
+          func(project) {
+            switch (project.parentProjectId) {
+              case (?pid) { pid == parentId };
+              case (_) { false };
+            };
+          }
+        );
       };
     };
   };
@@ -903,17 +971,17 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can add cost items");
     };
-    let userProjects = getUserProjects(caller);
+    let userProjects = getUserProjects(effectiveOwner(caller));
     switch (userProjects.get(projectId)) {
       case (null) {
         Run.trap("Projekt nicht gefunden");
       };
       case (?projekt) {
-        if (projekt.owner != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (projekt.owner != effectiveOwner(caller) and not AccessControl.isAdmin(accessControlState, caller)) {
           Run.trap("Unauthorized: You can only add cost items to your own projects");
         };
-        let userCostItems = getUserCostItems(caller);
-        let kostWithOwner = { kost with owner = caller; projektId = projectId };
+        let userCostItems = getUserCostItems(effectiveOwner(caller));
+        let kostWithOwner = { kost with owner = effectiveOwner(caller); projektId = projectId };
         let currentList = switch (userCostItems.get(projectId)) {
           case (null) { [kostWithOwner] };
           case (?existing) { existing.concat([kostWithOwner]) };
@@ -931,16 +999,16 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can update cost items");
     };
-    let userProjects = getUserProjects(caller);
+    let userProjects = getUserProjects(effectiveOwner(caller));
     switch (userProjects.get(projectId)) {
       case (null) {
         Run.trap("Projekt nicht gefunden");
       };
       case (?projekt) {
-        if (projekt.owner != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (projekt.owner != effectiveOwner(caller) and not AccessControl.isAdmin(accessControlState, caller)) {
           Run.trap("Unauthorized: You can only update cost items in your own projects");
         };
-        let userCostItems = getUserCostItems(caller);
+        let userCostItems = getUserCostItems(effectiveOwner(caller));
         switch (userCostItems.get(projectId)) {
           case (null) { Run.trap("Keine Kostenpunkte für dieses Projekt gefunden") };
           case (?koste) {
@@ -948,7 +1016,7 @@ actor {
             switch (kostFound) {
               case (null) { Run.trap("Kostenpunkt nicht gefunden") };
               case (?existingKost) {
-                if (existingKost.owner != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+                if (existingKost.owner != effectiveOwner(caller) and not AccessControl.isAdmin(accessControlState, caller)) {
                   Run.trap("Unauthorized: You can only update your own cost items");
                 };
                 let newList = koste.map(
@@ -971,16 +1039,16 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can delete cost items");
     };
-    let userProjects = getUserProjects(caller);
+    let userProjects = getUserProjects(effectiveOwner(caller));
     switch (userProjects.get(projectId)) {
       case (null) {
         Run.trap("Projekt nicht gefunden");
       };
       case (?projekt) {
-        if (projekt.owner != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (projekt.owner != effectiveOwner(caller) and not AccessControl.isAdmin(accessControlState, caller)) {
           Run.trap("Unauthorized: You can only delete cost items from your own projects");
         };
-        let userCostItems = getUserCostItems(caller);
+        let userCostItems = getUserCostItems(effectiveOwner(caller));
         switch (userCostItems.get(projectId)) {
           case (null) { Run.trap("Keine Kostenpunkte für dieses Projekt gefunden") };
           case (?koste) {
@@ -1011,16 +1079,16 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view cost items");
     };
-    let userProjects = getUserProjects(caller);
+    let userProjects = getUserProjects(effectiveOwner(caller));
     switch (userProjects.get(projectId)) {
       case (null) {
         Run.trap("Projekt nicht gefunden oder keine Berechtigung");
       };
       case (?projekt) {
-        if (projekt.owner != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (projekt.owner != effectiveOwner(caller) and not AccessControl.isAdmin(accessControlState, caller)) {
           Run.trap("Unauthorized: You can only view cost items from your own projects");
         };
-        let userCostItems = getUserCostItems(caller);
+        let userCostItems = getUserCostItems(effectiveOwner(caller));
         switch (userCostItems.get(projectId)) {
           case (null) { [] };
           case (?koste) { koste };
@@ -1033,10 +1101,9 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view cost items");
     };
-    let userCostItems = getUserCostItems(caller);
+    let userCostItems = getUserCostItems(effectiveOwner(caller));
     let allCostArrays = userCostItems.values().toArray();
-    let result = allCostArrays.flatten();
-    result;
+    allCostArrays.flatten();
   };
 
   public type KostenUebersicht = {
@@ -1049,16 +1116,16 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view costs summary");
     };
-    let userCostItems = getUserCostItems(caller);
+    let userCostItems = getUserCostItems(effectiveOwner(caller));
     switch (projektId) {
       case (?pid) {
-        let userProjects = getUserProjects(caller);
+        let userProjects = getUserProjects(effectiveOwner(caller));
         switch (userProjects.get(pid)) {
           case (null) {
             Run.trap("Projekt nicht gefunden oder keine Berechtigung");
           };
           case (?projekt) {
-            if (projekt.owner != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+            if (projekt.owner != effectiveOwner(caller) and not AccessControl.isAdmin(accessControlState, caller)) {
               Run.trap("Unauthorized: You can only view cost summary for your own projects");
             };
             switch (userCostItems.get(pid)) {
@@ -1109,7 +1176,7 @@ actor {
     switch (userProfiles.get(caller)) {
       case (?profile) {
         if (profile.userType == userType) {
-          getUserProjects(caller).values().toArray();
+          getUserProjects(effectiveOwner(caller)).values().toArray();
         } else {
           [];
         };
@@ -1122,14 +1189,60 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view media");
     };
-    getUserMediaInternal(caller).values().toArray();
+    getUserMediaInternal(effectiveOwner(caller)).values().toArray();
   };
 
   public query ({ caller }) func getUserDocuments() : async [Document] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Run.trap("Unauthorized: Only users can view documents");
     };
-    getUserDocumentsInternal(caller).values().toArray();
+    getUserDocumentsInternal(effectiveOwner(caller)).values().toArray();
+  };
+
+
+  public query ({ caller }) func getTasksByProject(projectId : ProjectId) : async [Task] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Run.trap("Unauthorized: Only users can view tasks");
+    };
+    let userTasks = getUserTasks(effectiveOwner(caller));
+    userTasks.values().toArray().filter(
+      func(task) {
+        switch (task.projectId) {
+          case (?pid) { pid == projectId };
+          case (null) { false };
+        };
+      }
+    );
+  };
+
+  public query ({ caller }) func getDocumentsByProject(projectId : ProjectId) : async [Document] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Run.trap("Unauthorized: Only users can view documents");
+    };
+    let userDocuments = getUserDocumentsInternal(effectiveOwner(caller));
+    userDocuments.values().toArray().filter(
+      func(doc) {
+        switch (documentProjectMap.get(doc.id)) {
+          case (?pid) { pid == projectId };
+          case (null) { false };
+        };
+      }
+    );
+  };
+
+  public query ({ caller }) func getMediaByProject(projectId : ProjectId) : async [Media] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Run.trap("Unauthorized: Only users can view media");
+    };
+    let userMedia = getUserMediaInternal(effectiveOwner(caller));
+    userMedia.values().toArray().filter(
+      func(m) {
+        switch (mediaProjectMap.get(m.id)) {
+          case (?pid) { pid == projectId };
+          case (null) { false };
+        };
+      }
+    );
   };
 
   public shared ({ caller }) func createInviteToken(role : AccessControl.UserRole) : async InviteToken {
@@ -1138,6 +1251,7 @@ actor {
     };
     let token = createRandomToken();
     inviteTokens.add(token, ?role);
+    inviteOwners.add(token, caller);
     token;
   };
 
@@ -1152,8 +1266,16 @@ actor {
             Run.trap("Token already used");
           };
           case (?role) {
-            AccessControl.assignRole(accessControlState, caller, caller, role);
+            // Directly assign role (token already validated by admin creation)
+            accessControlState.userRoles.add(caller, role);
             teamMembers.add(caller, role);
+            // Record that this user shares data with the inviter
+            switch (inviteOwners.get(token)) {
+              case (?inviterPrincipal) {
+                projectSharing.add(caller, inviterPrincipal);
+              };
+              case (null) {};
+            };
             inviteTokens.add(token, null);
           };
         };
@@ -1191,7 +1313,6 @@ actor {
     "token_" # timestamp.toText();
   };
 
-  // Missing functions for invite links module
   public shared ({ caller }) func generateInviteCode() : async Text {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Run.trap("Unauthorized: Only admins can generate invite codes");
@@ -1220,7 +1341,6 @@ actor {
     InviteLinksModule.getInviteCodes(inviteState);
   };
 
-  // New invite function: generate and store code "server side"
   public shared ({ caller }) func createInvite(
     generatedCode : Text,
     role : AccessControl.UserRole,
@@ -1235,27 +1355,31 @@ actor {
     codesMap.add(generatedCode, code);
   };
 
-  // New validation function: check, consume code, and assign role to caller
   public shared ({ caller }) func validateInviteCode(generatedCode : Text) : async () {
     switch (codesMap.get(generatedCode)) {
       case (null) {
         Run.trap("Invalid or expired code");
       };
       case (?code) {
-        // Remove code after use (one-time use)
         codesMap.remove(generatedCode);
-        // Assign the role to the caller
         AccessControl.assignRole(accessControlState, caller, caller, code.role);
         teamMembers.add(caller, code.role);
       };
     };
   };
 
-  // Admin-only query to check invite code details
   public query ({ caller }) func getInviteCode(generatedCode : Text) : async ?InviteCode {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Run.trap("Unauthorized: Only admins can view invite code details");
     };
     codesMap.get(generatedCode);
+  };
+
+  public query ({ caller }) func getAllUserProjects() : async [(ProjectId, Project)] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Run.trap("Unauthorized: Only users can view projects");
+    };
+    let userProjects = getUserProjects(effectiveOwner(caller));
+    userProjects.toArray();
   };
 };
