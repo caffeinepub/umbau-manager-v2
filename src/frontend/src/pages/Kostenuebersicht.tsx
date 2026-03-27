@@ -570,6 +570,159 @@ export default function Kostenuebersicht({
             <CardTitle>Alle Kostenpunkte</CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Standalone add form - shown even when no items exist yet */}
+            {addingToProject === currentProjectId &&
+              currentProjectId &&
+              sortedCostItems.length === 0 && (
+                <Card className="mb-6">
+                  <CardContent className="pt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="new-beschreibung-empty">
+                          Beschreibung *
+                        </Label>
+                        <Input
+                          id="new-beschreibung-empty"
+                          value={newCostItem.beschreibung}
+                          onChange={(e) =>
+                            setNewCostItem({
+                              ...newCostItem,
+                              beschreibung: e.target.value,
+                            })
+                          }
+                          placeholder="z.B. Materialkosten"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="new-betrag-empty">Betrag (€) *</Label>
+                        <Input
+                          id="new-betrag-empty"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={newCostItem.betrag}
+                          onChange={(e) =>
+                            setNewCostItem({
+                              ...newCostItem,
+                              betrag: e.target.value,
+                            })
+                          }
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="new-kategorie-empty">Kategorie *</Label>
+                        <Select
+                          value={newCostItem.kategorie}
+                          onValueChange={(value) =>
+                            setNewCostItem({ ...newCostItem, kategorie: value })
+                          }
+                        >
+                          <SelectTrigger id="new-kategorie-empty">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {COST_CATEGORIES.map((cat) => (
+                              <SelectItem key={cat} value={cat}>
+                                {cat}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="new-status-empty">Status *</Label>
+                        <Select
+                          value={newCostItem.status}
+                          onValueChange={(value) =>
+                            setNewCostItem({ ...newCostItem, status: value })
+                          }
+                        >
+                          <SelectTrigger id="new-status-empty">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {COST_STATUS.map((status) => (
+                              <SelectItem key={status} value={status}>
+                                {status.charAt(0).toUpperCase() +
+                                  status.slice(1)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="new-handwerker-empty">Handwerker</Label>
+                        <Input
+                          id="new-handwerker-empty"
+                          value={newCostItem.handwerker}
+                          onChange={(e) =>
+                            setNewCostItem({
+                              ...newCostItem,
+                              handwerker: e.target.value,
+                            })
+                          }
+                          placeholder="Optional"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="new-dokument-empty">Dokument</Label>
+                        <Select
+                          value={newCostItem.dokumentId}
+                          onValueChange={(value) =>
+                            setNewCostItem({
+                              ...newCostItem,
+                              dokumentId: value,
+                            })
+                          }
+                        >
+                          <SelectTrigger id="new-dokument-empty">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Kein Dokument</SelectItem>
+                            {documents.map((doc) => (
+                              <SelectItem key={doc.id} value={doc.id}>
+                                {doc.name}
+                              </SelectItem>
+                            ))}
+                            {media.map((m) => (
+                              <SelectItem key={m.id} value={m.id}>
+                                {m.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        onClick={() => handleAddCostItem(currentProjectId)}
+                        disabled={addKostenpunkt.isPending}
+                      >
+                        {addKostenpunkt.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Wird hinzugefügt...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Hinzufügen
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setAddingToProject(null)}
+                        disabled={addKostenpunkt.isPending}
+                      >
+                        Abbrechen
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             {sortedCostItems.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
@@ -578,8 +731,21 @@ export default function Kostenuebersicht({
                 <p className="text-sm text-muted-foreground mt-2">
                   {statusFilter !== "all"
                     ? "Keine Kostenpunkte mit diesem Status gefunden"
-                    : "Erstellen Sie ein Projekt mit Kostenpunkten, um sie hier zu sehen"}
+                    : currentProjectId
+                      ? "Klicken Sie auf '+ Kostenpunkt hinzufügen' um den ersten Kostenpunkt zu erstellen"
+                      : "Wählen Sie ein Projekt aus um Kostenpunkte zu sehen"}
                 </p>
+                {currentProjectId &&
+                  statusFilter === "all" &&
+                  !addingToProject && (
+                    <button
+                      type="button"
+                      onClick={() => setAddingToProject(currentProjectId)}
+                      className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+                    >
+                      + Kostenpunkt hinzufügen
+                    </button>
+                  )}
               </div>
             ) : (
               <div className="space-y-8">
