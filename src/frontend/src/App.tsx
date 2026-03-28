@@ -22,13 +22,18 @@ if (typeof window !== "undefined") {
 }
 
 import { Toaster } from "@/components/ui/sonner";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 // ============================================================================
 import { useEffect, useState } from "react";
 import AppLayout from "./components/AppLayout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import ProfileSetupModal from "./components/ProfileSetupModal";
+import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useProjectSession } from "./hooks/useProjectSession";
 // FIX: use useGetTopLevelProjects instead of useGetAllProjects
@@ -76,6 +81,8 @@ type Page =
 
 function AppContent() {
   const { identity, isInitializing, clear } = useInternetIdentity();
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
   const {
     data: userProfile,
     isLoading: profileLoading,
@@ -96,6 +103,22 @@ function AppContent() {
   const isAuthenticated = !!identity;
   const profileReady = isAuthenticated && !profileLoading && isFetched;
   const showProfileSetup = profileReady && userProfile === null;
+
+  // FIX: Call initializeAccessControl every time the actor becomes available.
+  // After a Caffeine deploy the canister state resets, but the browser actor cache
+  // remains (staleTime: Infinity). Without this, isCallerAdmin() traps because
+  // userRoles is empty. initializeAccessControl() is idempotent — already-registered
+  // users are ignored, only new/reset state triggers a real registration.
+  useEffect(() => {
+    if (!actor) return;
+    actor
+      .initializeAccessControl()
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["isAdmin"] });
+        queryClient.invalidateQueries({ queryKey: ["hasTeamAssociation"] });
+      })
+      .catch(console.error);
+  }, [actor, queryClient]);
 
   // Check for invite token on mount
   useEffect(() => {
