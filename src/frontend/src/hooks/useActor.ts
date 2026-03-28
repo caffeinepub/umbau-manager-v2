@@ -28,7 +28,7 @@ export function useActor() {
       await actor.initializeAccessControl();
       return actor;
     },
-    // Only refetch when identity changes
+    // Refetch every 30 seconds so initializeAccessControl() re-runs after deploys
     staleTime: 30 * 1000,
     // This will cause the actor to be recreated when the identity changes
     enabled: true,
