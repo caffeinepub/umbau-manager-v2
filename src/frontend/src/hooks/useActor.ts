@@ -29,7 +29,7 @@ export function useActor() {
       return actor;
     },
     // Only refetch when identity changes
-    staleTime: Number.POSITIVE_INFINITY,
+    staleTime: 30 * 1000,
     // This will cause the actor to be recreated when the identity changes
     enabled: true,
   });
