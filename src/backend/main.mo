@@ -1130,7 +1130,7 @@ actor {
             case (null) { [] };
           };
         }).flatten();
-        [projectItems, phaseItems].flatten();
+        projectItems.concat(phaseItems);
       };
     };
   };
