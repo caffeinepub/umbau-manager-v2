@@ -1124,13 +1124,14 @@ actor {
           case (?items) { items };
           case (null) { [] };
         };
-        let phaseItems = phases.map(func(phase : Project) : [CostItem] {
+        let phaseItemArrays = phases.map(func(phase : Project) : [CostItem] {
           switch (userCostItems.get(phase.id)) {
             case (?items) { items };
             case (null) { [] };
           };
-        }).flatten();
-        projectItems.concat(phaseItems);
+        });
+        let phaseItems = phaseItemArrays.flatten();
+        [projectItems, phaseItems].flatten();
       };
     };
   };

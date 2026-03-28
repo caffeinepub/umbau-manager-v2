@@ -1,9 +1,44 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Building2, Calendar, Plus } from "lucide-react";
-import { useGetTopLevelProjects } from "../hooks/useQueries";
+import {
+  ArrowLeft,
+  Building2,
+  Calendar,
+  MoreVertical,
+  Plus,
+} from "lucide-react";
+import { useState } from "react";
+import {
+  useDeleteProject,
+  useGetTopLevelProjects,
+  useUpdateProject,
+} from "../hooks/useQueries";
 
 interface ProjectSelectionProps {
   onNavigate?: (page: string) => void;
@@ -11,12 +46,24 @@ interface ProjectSelectionProps {
   onProjectSelect?: (projectId: string) => void;
 }
 
+type Project = NonNullable<
+  ReturnType<typeof useGetTopLevelProjects>["data"]
+>[0];
+
 export default function ProjectSelection({
   onNavigate,
   onBack,
   onProjectSelect,
 }: ProjectSelectionProps) {
   const { data: projects, isLoading } = useGetTopLevelProjects();
+  const updateProject = useUpdateProject();
+  const deleteProject = useDeleteProject();
+
+  const [renameProject, setRenameProject] = useState<Project | null>(null);
+  const [deleteProjectState, setDeleteProjectState] = useState<Project | null>(
+    null,
+  );
+  const [renameValue, setRenameValue] = useState("");
 
   const handleProjectClick = (projectId: string) => {
     if (onProjectSelect) {
@@ -40,6 +87,39 @@ export default function ProjectSelection({
     }
   };
 
+  const handleRenameOpen = (e: React.MouseEvent, project: Project) => {
+    e.stopPropagation();
+    setRenameProject(project);
+    setRenameValue(project.name);
+  };
+
+  const handleRenameConfirm = () => {
+    if (!renameProject || !renameValue.trim()) return;
+    updateProject.mutate({
+      id: renameProject.id,
+      name: renameValue.trim(),
+      kunde: renameProject.kunde ?? null,
+      color: renameProject.color || "#3b82f6",
+      start: renameProject.startDate ?? null,
+      end: renameProject.endDate ?? null,
+      kategorie: renameProject.kategorie || "",
+      verantwortlicherKontakt: renameProject.verantwortlicherKontakt ?? null,
+      costItems: [],
+    });
+    setRenameProject(null);
+  };
+
+  const handleDeleteOpen = (e: React.MouseEvent, project: Project) => {
+    e.stopPropagation();
+    setDeleteProjectState(project);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!deleteProjectState) return;
+    deleteProject.mutate(deleteProjectState.id);
+    setDeleteProjectState(null);
+  };
+
   const formatDate = (timestamp: bigint | undefined) => {
     if (!timestamp) return null;
     const date = new Date(Number(timestamp / BigInt(1000000)));
@@ -51,158 +131,253 @@ export default function ProjectSelection({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <Button
-            variant="ghost"
-            onClick={handleBack}
-            className="mb-4"
-            data-ocid="project-selection.back.button"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Zurück
-          </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Ihre Projekte</h1>
-          <p className="text-muted-foreground mt-2">
-            Wählen Sie ein Projekt aus, um fortzufahren
-          </p>
-        </div>
-
-        {/* Loading State */}
-        {isLoading && (
-          <div
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-            data-ocid="project-selection.loading_state"
-          >
-            {[1, 2, 3].map((i) => (
-              <Card
-                key={i}
-                className="cursor-pointer hover:shadow-lg transition-shadow"
-              >
-                <CardHeader>
-                  <Skeleton className="h-6 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-1/2" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-4 w-full mb-2" />
-                  <Skeleton className="h-4 w-2/3" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Projects Grid */}
-        {!isLoading && projects && projects.length > 0 && (
-          <div
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-            data-ocid="project-selection.list"
-          >
-            {projects.map((project, index) => (
-              <Card
-                key={project.id}
-                className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] duration-200"
-                onClick={() => handleProjectClick(project.id)}
-                data-ocid={`project-selection.item.${index + 1}`}
-              >
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg truncate">
-                        {project.name}
-                      </CardTitle>
-                      {project.kunde && (
-                        <p className="text-sm text-muted-foreground mt-1 truncate">
-                          {project.kunde}
-                        </p>
-                      )}
-                    </div>
-                    <div
-                      className="w-4 h-4 rounded-full flex-shrink-0 mt-1"
-                      style={{ backgroundColor: project.color }}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {project.kategorie && (
-                    <Badge variant="secondary" className="text-xs">
-                      {project.kategorie}
-                    </Badge>
-                  )}
-
-                  {(project.startDate || project.endDate) && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
-                      <span>
-                        {formatDate(project.startDate) || "—"} bis{" "}
-                        {formatDate(project.endDate) || "—"}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2 border-t">
-                    <Building2 className="w-4 h-4" />
-                    <span>Projekt öffnen</span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            {/* Create New Project Card */}
-            <Card
-              className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] duration-200 border-dashed"
-              onClick={handleCreateNew}
-              data-ocid="project-selection.create_new.card"
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-6">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <Button
+              variant="ghost"
+              onClick={handleBack}
+              className="mb-4"
+              data-ocid="project-selection.back.button"
             >
-              <CardHeader>
-                <div className="flex items-center justify-center h-full py-6">
-                  <div className="text-center space-y-3">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                      <Plus className="w-6 h-6 text-primary" />
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Zurück
+            </Button>
+            <h1 className="text-3xl font-bold tracking-tight">Ihre Projekte</h1>
+            <p className="text-muted-foreground mt-2">
+              Wählen Sie ein Projekt aus, um fortzufahren
+            </p>
+          </div>
+
+          {/* Loading State */}
+          {isLoading && (
+            <div
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              data-ocid="project-selection.loading_state"
+            >
+              {[1, 2, 3].map((i) => (
+                <Card
+                  key={i}
+                  className="cursor-pointer hover:shadow-lg transition-shadow"
+                >
+                  <CardHeader>
+                    <Skeleton className="h-6 w-3/4 mb-2" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-4 w-full mb-2" />
+                    <Skeleton className="h-4 w-2/3" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Projects Grid */}
+          {!isLoading && projects && projects.length > 0 && (
+            <div
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              data-ocid="project-selection.list"
+            >
+              {projects.map((project, index) => (
+                <Card
+                  key={project.id}
+                  className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] duration-200"
+                  onClick={() => handleProjectClick(project.id)}
+                  data-ocid={`project-selection.item.${index + 1}`}
+                >
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <CardTitle className="text-lg truncate">
+                          {project.name}
+                        </CardTitle>
+                        {project.kunde && (
+                          <p className="text-sm text-muted-foreground mt-1 truncate">
+                            {project.kunde}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: project.color }}
+                        />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={(e) => e.stopPropagation()}
+                              data-ocid={`project-selection.item.dropdown_menu.${index + 1}`}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => handleRenameOpen(e, project)}
+                              data-ocid={`project-selection.rename.button.${index + 1}`}
+                            >
+                              Umbenennen
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={(e) => handleDeleteOpen(e, project)}
+                              data-ocid={`project-selection.delete.button.${index + 1}`}
+                            >
+                              Löschen
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
-                    <div>
-                      <CardTitle className="text-base">
-                        Neues Projekt erstellen
-                      </CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Starten Sie ein neues Bauprojekt
-                      </p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {project.kategorie && (
+                      <Badge variant="secondary" className="text-xs">
+                        {project.kategorie}
+                      </Badge>
+                    )}
+
+                    {(project.startDate || project.endDate) && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Calendar className="w-4 h-4" />
+                        <span>
+                          {formatDate(project.startDate) || "—"} bis{" "}
+                          {formatDate(project.endDate) || "—"}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2 border-t">
+                      <Building2 className="w-4 h-4" />
+                      <span>Projekt öffnen</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {/* Create New Project Card */}
+              <Card
+                className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] duration-200 border-dashed"
+                onClick={handleCreateNew}
+                data-ocid="project-selection.create_new.card"
+              >
+                <CardHeader>
+                  <div className="flex items-center justify-center h-full py-6">
+                    <div className="text-center space-y-3">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                        <Plus className="w-6 h-6 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base">
+                          Neues Projekt erstellen
+                        </CardTitle>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Starten Sie ein neues Bauprojekt
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </CardHeader>
-            </Card>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!isLoading && projects && projects.length === 0 && (
-          <Card className="p-12" data-ocid="project-selection.empty_state">
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
-                <Building2 className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold mb-2">
-                  Keine Projekte gefunden
-                </h3>
-                <p className="text-muted-foreground">
-                  Sie haben noch keine Projekte erstellt. Erstellen Sie Ihr
-                  erstes Projekt, um zu beginnen.
-                </p>
-              </div>
-              <Button
-                onClick={handleBack}
-                data-ocid="project-selection.back_empty.button"
-              >
-                Zurück zur Startseite
-              </Button>
+                </CardHeader>
+              </Card>
             </div>
-          </Card>
-        )}
+          )}
+
+          {/* Empty State */}
+          {!isLoading && projects && projects.length === 0 && (
+            <Card className="p-12" data-ocid="project-selection.empty_state">
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+                  <Building2 className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">
+                    Keine Projekte gefunden
+                  </h3>
+                  <p className="text-muted-foreground">
+                    Sie haben noch keine Projekte erstellt. Erstellen Sie Ihr
+                    erstes Projekt, um zu beginnen.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleBack}
+                  data-ocid="project-selection.back_empty.button"
+                >
+                  Zurück zur Startseite
+                </Button>
+              </div>
+            </Card>
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Rename Dialog */}
+      <Dialog
+        open={!!renameProject}
+        onOpenChange={(v) => !v && setRenameProject(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Projekt umbenennen</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleRenameConfirm()}
+            placeholder="Projektname"
+            data-ocid="project-selection.rename.input"
+          />
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setRenameProject(null)}
+              data-ocid="project-selection.rename.cancel_button"
+            >
+              Abbrechen
+            </Button>
+            <Button
+              onClick={handleRenameConfirm}
+              disabled={!renameValue.trim() || updateProject.isPending}
+              data-ocid="project-selection.rename.confirm_button"
+            >
+              Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete AlertDialog */}
+      <AlertDialog
+        open={!!deleteProjectState}
+        onOpenChange={(v) => !v && setDeleteProjectState(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Projekt wirklich löschen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Das Projekt <strong>{deleteProjectState?.name}</strong> und alle
+              zugehörigen Daten werden unwiderruflich gelöscht.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-ocid="project-selection.delete.cancel_button">
+              Abbrechen
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-ocid="project-selection.delete.confirm_button"
+            >
+              Löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

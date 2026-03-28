@@ -155,7 +155,7 @@ export function useJoinFamily() {
   return useMutation({
     mutationFn: async (inviteCode: string) => {
       if (!actor) throw new Error("Actor not available");
-      await actor.validateInviteCode(inviteCode);
+      await actor.claimInviteToken(inviteCode);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["hasTeamAssociation"] });
