@@ -193,7 +193,7 @@ actor {
   func getUserLinks(user : Principal) : Map.Map<LinkId, HelpfulLink> {
     getUserData<HelpfulLink>(user, links);
   };
-  func _getUserCompletedTasks(user : Principal) : Set.Set<TaskId> {
+  func getUserCompletedTasks(user : Principal) : Set.Set<TaskId> {
     switch (completedTasks.get(user)) {
       case (null) {
         let newSet = Set.empty<TaskId>();
@@ -213,7 +213,7 @@ actor {
   };
 
 
-  func _getUserCustomCategories(user : Principal) : Map.Map<TextValue, Map.Map<TextValue, TextValue>> {
+  func getUserCustomCategories(user : Principal) : Map.Map<TextValue, Map.Map<TextValue, TextValue>> {
     switch (customCategoriesStore.get(user)) {
       case (null) {
         let newMap = Map.empty<TextValue, Map.Map<TextValue, TextValue>>();
@@ -1131,7 +1131,7 @@ actor {
           };
         });
         let phaseItems = phaseItemArrays.flatten();
-        Array.tabulate<CostItem>(projectItems.size() + phaseItems.size(), func(i) { if (i < projectItems.size()) projectItems[i] else phaseItems[i - projectItems.size()] });
+        projectItems.concat(phaseItems);
       };
     };
   };

@@ -153,18 +153,15 @@ export function useJoinFamily() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (inviteCode: string): Promise<string | undefined> => {
+    mutationFn: async (inviteCode: string) => {
       if (!actor) throw new Error("Actor not available");
-      await actor.claimInviteToken(inviteCode);
-      const projects = await actor.getTopLevelProjects();
-      return projects[0]?.id;
+      await actor.validateInviteCode(inviteCode);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["hasTeamAssociation"] });
       queryClient.invalidateQueries({ queryKey: ["teamMembers"] });
       queryClient.invalidateQueries({ queryKey: ["isAdmin"] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
-      queryClient.invalidateQueries({ queryKey: ["topLevelProjects"] });
       toast.success("Erfolgreich dem Projekt beigetreten");
     },
     onError: (error: Error) => {

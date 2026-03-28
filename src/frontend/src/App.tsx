@@ -80,9 +80,9 @@ type Page =
   | "welcome";
 
 function AppContent() {
-  const { identity, isInitializing, clear } = useInternetIdentity();
   const { actor } = useActor();
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
+  const { identity, isInitializing, clear } = useInternetIdentity();
   const {
     data: userProfile,
     isLoading: profileLoading,
@@ -104,21 +104,18 @@ function AppContent() {
   const profileReady = isAuthenticated && !profileLoading && isFetched;
   const showProfileSetup = profileReady && userProfile === null;
 
-  // FIX: Call initializeAccessControl every time the actor becomes available.
-  // After a Caffeine deploy the canister state resets, but the browser actor cache
-  // remains (staleTime: Infinity). Without this, isCallerAdmin() traps because
-  // userRoles is empty. initializeAccessControl() is idempotent — already-registered
-  // users are ignored, only new/reset state triggers a real registration.
+  // Re-initialize access control on every actor ready (handles post-build state resets)
   useEffect(() => {
     if (!actor) return;
     actor
       .initializeAccessControl()
       .then(() => {
-        queryClient.invalidateQueries({ queryKey: ["isAdmin"] });
-        queryClient.invalidateQueries({ queryKey: ["hasTeamAssociation"] });
+        qc.invalidateQueries({ queryKey: ["isAdmin"] });
+        qc.invalidateQueries({ queryKey: ["hasTeamAssociation"] });
+        qc.invalidateQueries({ queryKey: ["callerUserProfile"] });
       })
       .catch(console.error);
-  }, [actor, queryClient]);
+  }, [actor, qc]);
 
   // Check for invite token on mount
   useEffect(() => {
