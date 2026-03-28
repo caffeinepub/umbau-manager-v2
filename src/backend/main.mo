@@ -1131,7 +1131,7 @@ actor {
           };
         });
         let phaseItems = phaseItemArrays.flatten();
-        [projectItems, phaseItems].flatten();
+        Array.tabulate<CostItem>(projectItems.size() + phaseItems.size(), func(i) { if (i < projectItems.size()) projectItems[i] else phaseItems[i - projectItems.size()] });
       };
     };
   };

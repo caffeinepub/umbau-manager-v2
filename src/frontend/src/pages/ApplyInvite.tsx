@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useProjectSession } from "../hooks/useProjectSession";
 import { useJoinFamily } from "../hooks/useQueries";
@@ -19,13 +20,15 @@ interface ApplyInviteProps {
 
 export default function ApplyInvite({ onSuccess }: ApplyInviteProps) {
   const { identity, isInitializing } = useInternetIdentity();
+  const { actor } = useActor();
   const joinFamily = useJoinFamily();
-  const { setLastUsedProjectId: _setLastUsedProjectId } = useProjectSession();
+  const { setLastUsedProjectId } = useProjectSession();
   const [status, setStatus] = useState<"processing" | "success" | "error">(
     "processing",
   );
   const [errorMessage, setErrorMessage] = useState<string>("");
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally run only when identity, actor or initialization state changes
   useEffect(() => {
     const processInvite = async () => {
       if (isInitializing) return;
@@ -38,6 +41,8 @@ export default function ApplyInvite({ onSuccess }: ApplyInviteProps) {
         return;
       }
 
+      if (!actor) return; // warten bis Actor bereit ist
+
       const inviteToken = getUrlParameter("invite");
       if (!inviteToken) {
         setStatus("error");
@@ -46,13 +51,13 @@ export default function ApplyInvite({ onSuccess }: ApplyInviteProps) {
       }
 
       try {
-        await joinFamily.mutateAsync(inviteToken);
+        const firstProjectId = await joinFamily.mutateAsync(inviteToken);
         clearUrlParameter("invite");
         setStatus("success");
-
-        // Note: The backend doesn't return a project ID from validateInviteCode
-        // So we pass undefined and let the parent component handle navigation
-        setTimeout(() => onSuccess(undefined), 2000);
+        if (firstProjectId) {
+          setLastUsedProjectId(firstProjectId);
+        }
+        setTimeout(() => onSuccess(firstProjectId), 2000);
       } catch (error: any) {
         console.error("Invite claim error:", error);
         setStatus("error");
@@ -64,7 +69,7 @@ export default function ApplyInvite({ onSuccess }: ApplyInviteProps) {
     };
 
     processInvite();
-  }, [identity, isInitializing, joinFamily, onSuccess]);
+  }, [identity, isInitializing, actor, joinFamily, onSuccess]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
