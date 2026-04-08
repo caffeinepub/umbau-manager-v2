@@ -11,7 +11,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, Plus, Search, Trash2, User } from "lucide-react";
+import {
+  Calendar,
+  CheckSquare,
+  Clock,
+  Plus,
+  Search,
+  Trash2,
+  User,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { Task } from "../backend";
@@ -648,9 +656,15 @@ export default function Tasks({
                 </Card>
               ))}
               {tasksByStatus[status].length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  Keine Aufgaben
-                </p>
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <CheckSquare className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Keine Aufgaben
+                  </p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">
+                    Diese Spalte ist leer
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>

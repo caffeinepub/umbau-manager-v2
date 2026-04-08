@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table";
 import {
   ArrowUpDown,
+  Euro,
   FileText,
   Filter,
   Loader2,
@@ -724,11 +725,12 @@ export default function Kostenuebersicht({
                 </Card>
               )}
             {sortedCostItems.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">
+              <div className="text-center py-16">
+                <Euro className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+                <p className="font-medium text-muted-foreground">
                   Keine Kostenpunkte vorhanden
                 </p>
-                <p className="text-sm text-muted-foreground mt-2">
+                <p className="text-sm text-muted-foreground/70 mt-1">
                   {statusFilter !== "all"
                     ? "Keine Kostenpunkte mit diesem Status gefunden"
                     : currentProjectId
