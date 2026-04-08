@@ -1131,8 +1131,8 @@ actor {
           };
         });
         var phaseItems : [CostItem] = [];
-        for (arr in phaseItemArrays.values()) { phaseItems := phaseItems.concat(arr) };
-        projectItems.concat(phaseItems);
+        for (arr in phaseItemArrays.values()) { phaseItems := phaseItems.concat<CostItem>(arr) };
+        projectItems.concat<CostItem>(phaseItems);
       };
     };
   };
@@ -1144,7 +1144,7 @@ actor {
     let userCostItems = getUserCostItems(effectiveOwner(caller));
     let allCostArrays = userCostItems.values().toArray();
     var allCostResult : [CostItem] = [];
-    for (arr in allCostArrays.values()) { allCostResult := allCostResult.concat(arr) };
+    for (arr in allCostArrays.values()) { allCostResult := allCostResult.concat<CostItem>(arr) };
     allCostResult;
   };
 
@@ -1194,7 +1194,7 @@ actor {
       case (null) {
         let allCostArrays = userCostItems.values().toArray();
         var allCosts : [CostItem] = [];
-        for (arr in allCostArrays.values()) { allCosts := allCosts.concat(arr) };
+        for (arr in allCostArrays.values()) { allCosts := allCosts.concat<CostItem>(arr) };
         var sum : Float = 0.0;
         for (k in allCosts.values()) { sum := sum + k.betrag };
         var paidSum : Float = 0.0;
